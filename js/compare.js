@@ -182,7 +182,7 @@ async function renderCmpMap(trip, m){
   try{ await ensureCmpMap(); }
   catch(e){
     console.warn('구글 지도 불러오기 실패', e); cmpMap = null;
-    document.getElementById('mapCompare').innerHTML = '<div class="map-msg">지도를 불러오지 못했어요. 인터넷 연결이나 API 키 설정을 확인해주세요.</div>';
+    document.getElementById('mapCompare').innerHTML = '<div class="map-msg">'+escapeHtml(mapFailMsg())+'</div>';
     bar.classList.add('hide');
     return;
   }

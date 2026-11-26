@@ -12,8 +12,9 @@
 /* 화면 모드를 그리기 전에 적용 (깜빡임 방지). 값은 이 기기에만 저장 */
 try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dark') document.documentElement.setAttribute('data-theme', tp); }catch(e){}
 </script>
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192'%3E%3Crect width='192' height='192' rx='40' fill='%231b4b7a'/%3E%3Ctext x='96' y='128' font-size='100' text-anchor='middle' fill='%23e0a94e' font-family='sans-serif'%3EJ%3C/text%3E%3C/svg%3E">
-<link id="manifestLink" rel="manifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -43,6 +44,7 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
   <button id="tabPlan" class="active">🗓 계획</button>
   <button id="tabActual">👣 실제</button>
   <button id="tabCompare">⚖️ 비교</button>
+  <button id="tabMemory">📸 추억</button>
 </div>
 
 <div class="daytabs-wrap">
@@ -90,6 +92,12 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
     <div class="rp-legend"><span class="me">● 실제</span><span class="ghost">● 계획(유령)</span></div>
   </div>
   <div id="cmpDay"></div>
+</div>
+
+<!-- 추억 탭: 끝난 여행 모아보기 -->
+<div id="pageMemory" class="page hide">
+  <div class="sectiontitle">📸 지난 여행</div>
+  <div id="memoryList"></div>
 </div>
 
 <div class="bottombar">
@@ -208,6 +216,20 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
   <h3>내 여행 목록</h3>
   <div id="tripListWrap"></div>
   <button class="newtripbtn" id="btnGoNewTrip">＋ 새 여행 만들기</button>
+  <button class="importtripbtn" id="btnImportTrip">📥 공유받은 여행 가져오기</button>
+  <input type="file" id="tripImportInput" accept="application/json,.json" class="hide">
+</div>
+
+<!-- 여행 공유 시트 -->
+<div class="sheet" id="sheetShare">
+  <div class="grip"></div>
+  <h3>여행 공유하기</h3>
+  <div class="seg-sub" id="shareSub"></div>
+  <div class="sharebtns">
+    <button id="shareWithPhotos">🖼 사진 포함해서 보내기<span id="shareSizeP"></span></button>
+    <button id="shareNoPhotos">📄 사진 없이 보내기<span>일정·방문 기록만</span></button>
+  </div>
+  <div class="sheetbtns"><button class="cancel" id="shareClose" style="width:100%;">닫기</button></div>
 </div>
 
 <!-- 설정 시트 -->
@@ -261,6 +283,9 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <script src="js/visits.js"></script>
 <script src="js/actual.js"></script>
 <script src="js/compare.js"></script>
+<script src="js/memory.js"></script>
+<script src="js/share.js"></script>
+<script src="js/pwa.js"></script>
 <script src="js/alarm.js"></script>
 <script src="js/main.js"></script>
 </body>

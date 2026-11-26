@@ -222,10 +222,11 @@ function renderTripList(){
     row.className='triprow'+(t.id===state.activeId?' active':'');
     row.innerHTML = '<div class="ck"></div><div class="info"><div class="t">'+escapeHtml(t.title)+'</div>'+
       '<div class="d">'+niceDate(t.start)+' ~ '+niceDate(t.end)+' · 일정 '+t.items.length+'개</div></div>'+
-      '<button class="tbtn" data-act="edit">편집</button><button class="tbtn" data-act="del">삭제</button>';
+      '<button class="tbtn" data-act="share">공유</button><button class="tbtn" data-act="edit">편집</button><button class="tbtn" data-act="del">삭제</button>';
     row.querySelector('.info').addEventListener('click', function(){
       state.activeId=t.id; save(); selectedDay=null; render(); closeSheet('sheetTripList'); toast(t.title+'(으)로 전환했어요');
     });
+    row.querySelector('[data-act="share"]').addEventListener('click', function(e){ e.stopPropagation(); openShareSheet(t.id); });
     row.querySelector('[data-act="edit"]').addEventListener('click', function(e){ e.stopPropagation(); openTripSheet(t.id); });
     var delBtn = row.querySelector('[data-act="del"]');
     if(state.trips.length<=1){ delBtn.style.display='none'; }
@@ -266,6 +267,7 @@ var curPage = 'plan', planView = 'list';
 document.getElementById('tabPlan').addEventListener('click', function(){ switchPage('plan'); });
 document.getElementById('tabActual').addEventListener('click', function(){ switchPage('actual'); });
 document.getElementById('tabCompare').addEventListener('click', function(){ switchPage('compare'); });
+document.getElementById('tabMemory').addEventListener('click', function(){ switchPage('memory'); });
 document.getElementById('tabSchedule').addEventListener('click', function(){ switchPage('schedule'); });
 document.getElementById('tabOverview').addEventListener('click', function(){ switchPage('overview'); });
 function isVisible(id){ return !document.getElementById(id).classList.contains('hide'); }
@@ -278,6 +280,11 @@ function switchPage(p){
   document.getElementById('tabPlan').classList.toggle('active', plan);
   document.getElementById('tabActual').classList.toggle('active', p==='actual');
   document.getElementById('tabCompare').classList.toggle('active', p==='compare');
+  document.getElementById('tabMemory').classList.toggle('active', p==='memory');
+  document.getElementById('pageMemory').classList.toggle('hide', p!=='memory');
+  // 추억 탭은 여러 여행을 보는 곳이라 날짜 탭을 숨긴다
+  document.querySelector('.daytabs-wrap').classList.toggle('hide', p==='memory');
+  if(p==='memory') renderMemory();
   document.getElementById('planSubtabs').classList.toggle('hide', !plan);
   document.getElementById('tabSchedule').classList.toggle('on', planView==='list');
   document.getElementById('tabOverview').classList.toggle('on', planView==='map');

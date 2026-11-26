@@ -76,7 +76,7 @@ async function renderOverview(trip){
   try{ await ensureMap(); }
   catch(e){
     console.warn('구글 지도 불러오기 실패', e);
-    mapObj = null; mapMessage('지도를 불러오지 못했어요. 인터넷 연결이나 API 키 설정을 확인해주세요.');
+    mapObj = null; mapMessage(mapFailMsg());
     return;
   }
   if(token!==ovBuildToken) return;

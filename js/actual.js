@@ -97,7 +97,7 @@ async function renderActMap(trip, list){
   try{ await ensureActMap(); }
   catch(e){
     console.warn('구글 지도 불러오기 실패', e); actMap = null;
-    document.getElementById('mapActual').innerHTML = '<div class="map-msg">지도를 불러오지 못했어요. 인터넷 연결이나 API 키 설정을 확인해주세요.</div>';
+    document.getElementById('mapActual').innerHTML = '<div class="map-msg">'+escapeHtml(mapFailMsg())+'</div>';
     return;
   }
   if(token!==actToken) return;
