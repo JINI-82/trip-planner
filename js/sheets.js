@@ -340,6 +340,56 @@ function closeSheet(id){
   var anyOpen = document.querySelectorAll('.sheet.show').length>0;
   if(!anyOpen) document.getElementById('overlayBg').classList.remove('show');
 }
+/* 시트 끌어내려 닫기 (아이폰 알림센터 내리듯)
+ * - 손잡이를 잡거나, 시트 내용이 맨 위까지 스크롤된 상태에서 아래로 끌면 따라 내려온다.
+ * - 120px 넘게 내리거나 빠르게 휙 내리면 닫히고, 아니면 제자리로 돌아간다. */
+function enableSheetDrag(sheet){
+  var startY = 0, dy = 0, t0 = 0, active = false, fromGrip = false;
+  var bg = document.getElementById('overlayBg');
+  function begin(y, onGrip){
+    if(!sheet.classList.contains('show')) return;
+    fromGrip = onGrip;
+    if(!onGrip && sheet.scrollTop > 0) return; // 내용 스크롤 중이면 끌기 아님
+    startY = y; dy = 0; t0 = Date.now(); active = true;
+  }
+  function move(y, e){
+    if(!active) return;
+    dy = y - startY;
+    if(dy <= 0){ // 위로 끄는 건 평소 스크롤
+      if(sheet.classList.contains('dragging')){ sheet.style.transform = ''; bg.style.opacity = ''; }
+      if(!fromGrip){ active = false; }
+      return;
+    }
+    if(e && e.cancelable) e.preventDefault();
+    sheet.classList.add('dragging');
+    sheet.style.transform = 'translate(-50%,'+dy+'px)';
+    bg.style.opacity = String(Math.max(0.2, 1 - dy/400));
+  }
+  function end(){
+    if(!active) return;
+    active = false;
+    var speed = dy / Math.max(1, Date.now()-t0); // px/ms
+    sheet.classList.remove('dragging');
+    bg.style.opacity = '';
+    sheet.style.transform = '';
+    // 편집 중이던 내용은 저장하지 않고 닫는다 (취소 버튼과 같음)
+    if(dy > 120 || (dy > 30 && speed > 0.6)) closeSheet(sheet.id);
+    dy = 0;
+  }
+  var grip = sheet.querySelector('.grip');
+  sheet.addEventListener('touchstart', function(e){ begin(e.touches[0].clientY, grip && (e.target===grip || grip.contains(e.target))); }, {passive:true});
+  sheet.addEventListener('touchmove', function(e){ move(e.touches[0].clientY, e); }, {passive:false});
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
+  // PC 마우스: 손잡이로 끌기
+  if(grip){
+    grip.addEventListener('mousedown', function(e){ begin(e.clientY, true); e.preventDefault(); });
+    window.addEventListener('mousemove', function(e){ if(active) move(e.clientY, null); });
+    window.addEventListener('mouseup', end);
+  }
+}
+document.querySelectorAll('.sheet').forEach(enableSheetDrag);
+
 document.getElementById('overlayBg').addEventListener('click', function(){
   document.querySelectorAll('.sheet.show').forEach(function(s){ s.classList.remove('show'); });
   this.classList.remove('show');
