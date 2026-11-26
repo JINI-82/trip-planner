@@ -36,9 +36,63 @@ function safeLS(fn, fallback){
 function load(){
   var raw = safeLS(function(){ return localStorage.getItem(LS_KEY); }, null);
   if(raw){
-    try { return JSON.parse(raw); } catch(e){ console.warn('데이터 파싱 오류', e); }
+    try {
+      var data = normalizeState(JSON.parse(raw));
+      if(data) return data;
+      console.warn('저장된 데이터 형식이 올바르지 않아요');
+    } catch(e){ console.warn('데이터 파싱 오류', e); }
   }
   return seedData();
+}
+
+/* ---------- 데이터 검증 (불러오기·로드 공통) ---------- */
+// 형식이 맞지 않으면 null. 맞으면 필드를 정리한 새 state를 돌려준다.
+var RE_DAY = /^\d{4}-\d{2}-\d{2}$/;
+var RE_TIME = /^\d{2}:\d{2}$/;
+var RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+var RE_ID = /^[A-Za-z0-9_-]{1,40}$/;
+function str(v, max){ return typeof v==='string' ? v.slice(0, max||500) : ''; }
+function num(v){ return (typeof v==='number' && isFinite(v)) ? v : null; }
+// javascript:, data: 같은 위험한 링크는 버린다
+function safeUrl(u){ return /^\s*(javascript|data|vbscript):/i.test(u||'') ? '' : (u||''); }
+function cleanId(v){ return (typeof v==='string' && RE_ID.test(v)) ? v : uid(); }
+function normalizeState(data){
+  if(!data || typeof data!=='object' || !Array.isArray(data.trips) || !data.trips.length) return null;
+  var trips = [];
+  for(var i=0;i<data.trips.length;i++){
+    var t = data.trips[i];
+    if(!t || typeof t!=='object' || !RE_DAY.test(t.start) || !RE_DAY.test(t.end)) return null;
+    var end = t.end < t.start ? t.start : t.end;
+    trips.push({
+      id: cleanId(t.id),
+      title: str(t.title, 100) || '여행',
+      start: t.start, end: end,
+      note: str(t.note, 100),
+      cities: Array.isArray(t.cities) ? t.cities.map(function(c){return str(c,50);}).filter(Boolean) : [],
+      bgImage: (typeof t.bgImage==='string' && /^data:image\//.test(t.bgImage)) ? t.bgImage : undefined,
+      flights: (Array.isArray(t.flights) ? t.flights : []).filter(function(f){ return f && typeof f==='object'; }).map(function(f){
+        return { id: cleanId(f.id), fromCode: str(f.fromCode,4), toCode: str(f.toCode,4),
+          fromCity: str(f.fromCity,50), toCity: str(f.toCity,50),
+          fromTime: RE_DT.test(f.fromTime) ? f.fromTime : '', toTime: RE_DT.test(f.toTime) ? f.toTime : '',
+          meta: str(f.meta,100) };
+      }),
+      items: (Array.isArray(t.items) ? t.items : []).filter(function(it){ return it && typeof it==='object' && RE_DAY.test(it.day); }).map(function(it){
+        return { id: cleanId(it.id), day: it.day,
+          time: RE_TIME.test(it.time) ? it.time : '09:00',
+          cat: CATS[it.cat] ? it.cat : '기타',
+          name: str(it.name,100) || '일정', place: str(it.place,200), mapUrl: safeUrl(str(it.mapUrl,1000)),
+          memo: str(it.memo,2000), move: MOVES[it.move] ? it.move : '',
+          alarm: RE_TIME.test(it.alarm) ? it.alarm : '',
+          alarmFired: typeof it.alarmFired==='string' ? it.alarmFired : '',
+          lat: num(it.lat), lng: num(it.lng),
+          userDocs: (Array.isArray(it.userDocs) ? it.userDocs : []).filter(function(d){
+            return d && typeof d.name==='string' && typeof d.data==='string' && /^data:(image\/[a-z+.-]+|application\/pdf);base64,/.test(d.data);
+          }).map(function(d){ return {name: str(d.name,100), data: d.data}; }) };
+      })
+    });
+  }
+  var activeId = trips.some(function(t){return t.id===data.activeId;}) ? data.activeId : trips[0].id;
+  return { trips: trips, activeId: activeId };
 }
 function save(){
   safeLS(function(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); return true; }, false);

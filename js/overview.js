@@ -18,16 +18,29 @@ function clearMapLayers(){
 }
 var ovItemsCache = [];
 var ovRouteCoords = []; // 전체 route latlng 리스트 (OSRM 또는 직선)
-var ovSegRanges = []; // 각 아이템 사이 route coords index 구간
+var ovSegRanges = []; // 각 아이템 사이 route coords index 구간 (구간 i의 startIdx = 구간 i-1의 endIdx)
+var ovLastKey = null;  // 마지막으로 그린 여행id|날짜
+var ovBuildToken = 0;  // 경로 요청이 겹칠 때 늦게 온 옛 결과를 버리기 위한 번호
+
+// i번째 일정이 ovRouteCoords에서 몇 번째 점인지
+function nodeIdx(i){
+  if(i<=0 || !ovSegRanges.length) return 0;
+  var seg = ovSegRanges[Math.min(i, ovSegRanges.length)-1];
+  return seg.endIdx;
+}
 
 function renderOverview(trip){
   if(!trip) return;
   ensureMap();
   setTimeout(function(){ mapObj.invalidateSize(); }, 50);
   clearMapLayers();
-  var items = sortedItems(trip, selectedDay).filter(function(i){ return i.lat && i.lng; });
+  var items = sortedItems(trip, selectedDay).filter(function(i){ return i.lat!=null && i.lng!=null; });
   ovItemsCache = items;
+  // 여행이나 날짜가 바뀌면 첫 일정부터 다시 시작
+  var key = trip.id+'|'+selectedDay;
+  if(key!==ovLastKey){ ovIndex = 0; ovLastKey = key; }
   if(ovIndex>=items.length) ovIndex = Math.max(0, items.length-1);
+  ovBuildToken++;
 
   if(items.length===0){
     document.getElementById('ovCurrentName').textContent = '좌표가 있는 일정이 없어요';
@@ -55,6 +68,7 @@ function renderOverview(trip){
 }
 
 async function buildRouteAndShow(items){
+  var token = ovBuildToken;
   ovRouteCoords = [];
   ovSegRanges = [];
   if(items.length<2){
@@ -62,6 +76,7 @@ async function buildRouteAndShow(items){
     updateOverviewPanel();
     return;
   }
+  var routeCoords = [], segRanges = [];
   for(var i=0;i<items.length-1;i++){
     var a=items[i], b=items[i+1];
     var segCoords = null;
@@ -73,13 +88,16 @@ async function buildRouteAndShow(items){
         segCoords = data.routes[0].geometry.coordinates.map(function(c){return [c[1],c[0]];});
       }
     }catch(e){ console.warn('OSRM 실패, 직선 대체', e); }
+    if(token!==ovBuildToken) return; // 그 사이 다른 날/여행으로 바뀜
     if(!segCoords) segCoords = [[a.lat,a.lng],[b.lat,b.lng]];
-    var startIdx = ovRouteCoords.length;
-    if(i>0) segCoords = segCoords.slice(1); // 중복 좌표 제거
-    ovRouteCoords = ovRouteCoords.concat(segCoords);
-    ovSegRanges.push({from:i, to:i+1, startIdx:startIdx, endIdx:ovRouteCoords.length-1});
+    // 구간 시작점 = 앞 구간의 끝점(공유). 중복 좌표는 한 번만 넣는다
+    var startIdx = i>0 ? routeCoords.length-1 : 0;
+    if(i>0) segCoords = segCoords.slice(1);
+    routeCoords = routeCoords.concat(segCoords);
+    segRanges.push({from:i, to:i+1, startIdx:startIdx, endIdx:routeCoords.length-1});
   }
-  drawRouteLines();
+  ovRouteCoords = routeCoords;
+  ovSegRanges = segRanges;
   updateOverviewPanel();
 }
 
@@ -116,6 +134,7 @@ function updateOverviewPanel(){
   document.getElementById('ovCurrentMeta').textContent = cat.emoji+' '+it.cat + (it.move? ' · '+(MOVES[it.move]||'')+' '+it.move : '');
   document.getElementById('ovProgressBar').style.width = ((ovIndex+1)/items.length*100)+'%';
   document.getElementById('ovProgressLabel').textContent = '오늘의 여정 '+(ovIndex+1)+'/'+items.length;
+  drawRouteLines(nodeIdx(ovIndex)); // 지나온 길 실선 / 남은 길 점선
   showCharacterAt(ovIndex);
 }
 
@@ -155,11 +174,12 @@ function animateBetween(fromIdx, toIdx){
   var items = ovItemsCache;
   var a = items[fromIdx], b = items[toIdx];
   if(!a || !b){ ovIndex=toIdx; updateOverviewPanel(); return; }
-  var seg = ovSegRanges[Math.min(fromIdx,toIdx)];
+  // 여러 칸을 건너뛰어도(지금 버튼) 사이 구간을 모두 따라 이동
+  var hasRoute = ovSegRanges.length && ovRouteCoords.length;
+  var p0 = nodeIdx(fromIdx), p1 = nodeIdx(toIdx);
   var coords;
-  if(seg && ovRouteCoords.length){
-    coords = ovRouteCoords.slice(seg.startIdx, seg.endIdx+1);
-    if(fromIdx>toIdx) coords = coords.slice().reverse();
+  if(hasRoute){
+    coords = p0<=p1 ? ovRouteCoords.slice(p0, p1+1) : ovRouteCoords.slice(p1, p0+1).reverse();
   } else {
     coords = [[a.lat,a.lng],[b.lat,b.lng]];
   }
@@ -170,22 +190,21 @@ function animateBetween(fromIdx, toIdx){
   var icon = L.divIcon({html: charSvg(b.move,true), className:'', iconSize:[34,34], iconAnchor:[17,30]});
   mapLayers.char = L.marker(coords[0], {icon:icon, zIndexOffset:1000}).addTo(mapObj);
   var startTime = null;
+  var token = ovBuildToken;
   function step(ts){
+    // 애니메이션 중 지도를 다시 그렸으면(날짜 전환·좌표 갱신 등) 여기서 멈춘다
+    if(token!==ovBuildToken || !mapLayers.char){ ovAnimating=false; return; }
     if(!startTime) startTime = ts;
     var t = Math.min(1, (ts-startTime)/duration);
     var pos = pointAlong(coords, t);
     mapLayers.char.setLatLng(pos);
     if(!mapObj.getBounds().pad(-0.15).contains(pos)){ mapObj.panTo(pos, {animate:true, duration:0.3}); }
-    var splitFrac = fromIdx<toIdx ? t : 1-t;
-    var totalSegIdx = seg ? seg.startIdx + Math.floor((seg.endIdx-seg.startIdx)*t) : 0;
-    drawRouteLines(fromIdx<toIdx ? totalSegIdx : (seg?seg.startIdx:0));
+    // 캐릭터 위치까지 실선 (앞으로 가든 뒤로 가든 같은 규칙)
+    if(hasRoute) drawRouteLines(Math.round(p0 + (p1-p0)*t));
     if(t<1){ requestAnimationFrame(step); }
     else{
       ovAnimating=false;
       ovIndex=toIdx;
-      var icon2 = L.divIcon({html: charSvg(b.move,false), className:'', iconSize:[34,34], iconAnchor:[17,30]});
-      mapLayers.char.setIcon(icon2);
-      drawRouteLines(seg?seg.endIdx:0);
       updateOverviewPanel();
     }
   }

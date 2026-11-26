@@ -33,7 +33,7 @@ function renderDayTabs(trip){
     var city = citiesArr.length ? citiesArr[Math.min(idx, citiesArr.length-1)] : '';
     var chip = document.createElement('button');
     chip.className = 'daychip' + (d===selectedDay ? ' active':'');
-    chip.innerHTML = '<div class="dow">'+DOW[dt.getDay()]+'</div><div class="md">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</div>'+(city?'<div class="city">'+city+'</div>':'');
+    chip.innerHTML = '<div class="dow">'+DOW[dt.getDay()]+'</div><div class="md">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</div>'+(city?'<div class="city">'+escapeHtml(city)+'</div>':'');
     chip.addEventListener('click', function(){
       selectedDay = d;
       renderDayTabs(trip);

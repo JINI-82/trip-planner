@@ -86,7 +86,7 @@ async function saveItem(){
   var day = document.getElementById('itDay').value || selectedDay;
   var time = document.getElementById('itTime').value || '09:00';
   var place = document.getElementById('itPlace').value.trim();
-  var mapUrl = document.getElementById('itMapUrl').value.trim();
+  var mapUrl = safeUrl(document.getElementById('itMapUrl').value.trim());
   var alarm = document.getElementById('itAlarm').value;
   var memo = document.getElementById('itMemo').value.trim();
 
@@ -99,13 +99,22 @@ async function saveItem(){
   var placeChanged = it.place !== place;
   it.day=day; it.time=time; it.cat=curCat; it.name=name; it.place=place; it.mapUrl=mapUrl;
   it.move=curMove; it.alarm=alarm; it.memo=memo; it.userDocs=pendingAttachments.slice();
-  it.alarmFired = alarm ? (it.alarmFired && !placeChanged ? it.alarmFired : false) : false;
+  // alarmFired는 '울린 날짜 시각' 문자열이라 날짜·알람 시간을 바꾸면 저절로 다시 울린다
+  if(typeof it.alarmFired!=='string') it.alarmFired = '';
+  if(!place){ it.lat=null; it.lng=null; }
 
   save(); render(); closeSheet('sheetItem'); toast(isNew?'일정을 추가했어요':'일정을 저장했어요');
 
-  if(place && (!it.lat || placeChanged)){
+  if(place && (it.lat==null || placeChanged)){
     var pos = await geocode(place);
-    if(pos){ it.lat=pos.lat; it.lng=pos.lng; save(); }
+    if(it.place!==place) return; // 그 사이 다시 수정됨
+    if(pos){
+      it.lat=pos.lat; it.lng=pos.lng; save();
+      // 좌표가 생겼으니 오버뷰를 보고 있으면 다시 그린다
+      if(getTrip()===trip && !document.getElementById('pageOverview').classList.contains('hide')) renderOverview(trip);
+    } else {
+      toast('장소 위치를 찾지 못했어요. 지도에는 표시되지 않아요');
+    }
   }
 }
 
@@ -184,6 +193,7 @@ document.getElementById('trSave').addEventListener('click', function(){
   var title = document.getElementById('trTitle').value.trim();
   if(!title){ toast('여행 제목을 입력해주세요'); return; }
   var start = document.getElementById('trStart').value;
+  if(!start){ toast('시작일을 입력해주세요'); return; }
   var end = document.getElementById('trEnd').value || start;
   if(end<start) end=start;
   var note = document.getElementById('trNote').value.trim();
@@ -281,8 +291,8 @@ document.getElementById('importInput').addEventListener('change', function(e){
   var reader = new FileReader();
   reader.onload = function(ev){
     try{
-      var data = JSON.parse(ev.target.result);
-      if(data && data.trips && data.activeId){
+      var data = normalizeState(JSON.parse(ev.target.result));
+      if(data){
         state = data; save(); selectedDay=null; render(); closeSheet('sheetSettings'); toast('불러오기 완료');
       } else { toast('올바른 백업 파일이 아니에요'); }
     }catch(err){ toast('파일을 읽을 수 없어요'); }

@@ -18,10 +18,13 @@ function checkAlarms(){
   var now = new Date();
   var todayS = fmtDate(now);
   var nowHM = pad(now.getHours())+':'+pad(now.getMinutes());
+  var fired = false;
   state.trips.forEach(function(trip){
     trip.items.forEach(function(it){
-      if(it.alarm && it.day===todayS && it.alarm===nowHM && !it.alarmFired){
-        it.alarmFired = true;
+      var key = it.day+' '+it.alarm; // 이 날짜·시각에 울렸는지 기록 (날짜·시간이 바뀌면 다시 울림)
+      if(it.alarm && it.day===todayS && it.alarm===nowHM && it.alarmFired!==key){
+        it.alarmFired = key;
+        fired = true;
         showAlarmPopup(it);
         beep();
         if('Notification' in window && Notification.permission==='granted'){
@@ -30,7 +33,7 @@ function checkAlarms(){
       }
     });
   });
-  save();
+  if(fired) save();
 }
 function showAlarmPopup(it){
   document.getElementById('alarmText').textContent = '⏰ '+it.time+' '+it.name+' 일정 시간이에요! (앱이 열려 있을 때만 알려드려요)';
