@@ -2,14 +2,14 @@
  * 전략: 같은 사이트 파일은 '네트워크 먼저, 안 되면 저장본' (온라인이면 항상 최신).
  *       구글 지도 등 다른 사이트 요청은 건드리지 않는다 (저장 안 함).
  * 앱 파일 목록(SHELL)이 바뀌면 CACHE 이름의 숫자를 올린다. */
-const CACHE = 'jplanner-shell-v2';
+const CACHE = 'jplanner-shell-v3';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
   'vendor/exifr.lite.umd.js',
   'js/config.js', 'js/maps.js', 'js/db.js', 'js/state.js', 'js/util.js', 'js/schedule.js',
   'js/sheets.js', 'js/backup.js', 'js/theme.js', 'js/ics.js', 'js/routes.js', 'js/places.js',
-  'js/overview.js', 'js/visits.js', 'js/actual.js', 'js/compare.js', 'js/memory.js',
+  'js/overview.js', 'js/visits.js', 'js/expense.js', 'js/actual.js', 'js/compare.js', 'js/memory.js',
   'js/share.js', 'js/pwa.js', 'js/alarm.js', 'js/main.js'
 ];
 const NET_TIMEOUT = 4000;

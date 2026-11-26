@@ -76,7 +76,7 @@ function registerCurrentLocation(){
     var range = dateRange(trip.start, trip.end);
     if(range.indexOf(loc.day)===-1){ toast('오늘('+loc.day+')은 이 여행 기간이 아니에요'); return; }
     var near = tripVisits(trip).find(function(v){
-      return distM(v, {lat:pos.coords.latitude, lng:pos.coords.longitude}) <= VISIT_NEAR_M && Math.abs(v.ms-now.getTime()) <= VISIT_NEAR_MS;
+      return hasLoc(v) && distM(v, {lat:pos.coords.latitude, lng:pos.coords.longitude}) <= VISIT_NEAR_M && Math.abs(v.ms-now.getTime()) <= VISIT_NEAR_MS;
     });
     if(near){ toast('방금 등록한 곳과 같은 장소예요'); return; }
     var v = newVisit(trip, {day:loc.day, time:loc.time, tz:tz, lat:pos.coords.latitude, lng:pos.coords.longitude, source:'gps'});
@@ -153,7 +153,7 @@ async function importPhotos(trip, files){
   function findVisitFor(p, needDist){
     var cands = tripVisits(trip).filter(function(v){
       if(Math.abs(v.ms - p.ms) > VISIT_NEAR_MS) return false;
-      if(needDist) return distM(v, p) <= VISIT_NEAR_M;
+      if(needDist) return !hasLoc(v) || distM(v, p) <= VISIT_NEAR_M; // 위치 없는 방문(가계부)은 시간만 맞으면 OK
       return true;
     });
     cands.sort(function(a,b){ return Math.abs(a.ms-p.ms) - Math.abs(b.ms-p.ms); });
@@ -192,6 +192,7 @@ async function importPhotos(trip, files){
       v.ms = ph.ms;
       created.push(v); stats.newVisits++;
     }
+    if(!hasLoc(v)){ v.lat = ph.lat; v.lng = ph.lng; } // 가계부 방문에 사진 위치 채우기
     v._last = ph;
     await attach(v, ph);
   }
@@ -204,7 +205,7 @@ async function importPhotos(trip, files){
     if(w) await attach(w, q); else stats.noGpsSkipped++;
   }
   // 사진 없이 끝난 방문(썸네일 실패) 제거, 임시 필드 정리
-  trip.visits = tripVisits(trip).filter(function(v){ delete v._last; return v.photos.length || v.source==='gps' || created.indexOf(v)===-1; });
+  trip.visits = tripVisits(trip).filter(function(v){ delete v._last; return v.photos.length || v.source!=='photo' || created.indexOf(v)===-1; });
   sortVisits(trip);
   return stats;
 }

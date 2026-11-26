@@ -23,7 +23,7 @@ function renderMemory(){
     var photos = visits.reduce(function(n, v){ return n + v.photos.length; }, 0);
     var stat = matchTrip(t);
     var cover = tripCover(t);
-    var style = visits.length ? '계획파 '+Math.round(stat.matched/stat.visitCount*100)+'%' : '방문 기록 없음';
+    var style = stat.visitCount ? '계획파 '+Math.round(stat.matched/stat.visitCount*100)+'%' : '방문 기록 없음';
     return '<button class="memcard" data-id="'+escapeAttr(t.id)+'">'+
       '<div class="cover"'+(cover ? ' style="background-image:url(&quot;'+escapeAttr(cover)+'&quot;)"' : '')+'>'+(cover?'':'🧭')+'</div>'+
       '<div class="info"><div class="t">'+escapeHtml(t.title)+'</div>'+

@@ -13,7 +13,7 @@ function matchDay(trip, day){
   var items = sortedItems(trip, day);
   var withLoc = items.filter(function(i){ return i.lat!=null && i.lng!=null; });
   var noLoc = items.filter(function(i){ return i.lat==null || i.lng==null; });
-  var visits = visitsOfDay(trip, day);
+  var visits = visitsOfDay(trip, day).filter(hasLoc);
   var cands = [];
   withLoc.forEach(function(it){
     visits.forEach(function(v){
@@ -189,7 +189,7 @@ async function renderCmpMap(trip, m){
   if(token!==cmpToken) return;
   clearCmpLayers();
   var plan = sortedItems(trip, selectedDay).filter(function(i){ return i.lat!=null && i.lng!=null; });
-  var actual = visitsOfDay(trip, selectedDay);
+  var actual = visitsOfDay(trip, selectedDay).filter(hasLoc);
   bar.classList.toggle('hide', !(plan.length || actual.length));
   document.getElementById('rpClock').textContent = '--:--';
   if(!plan.length && !actual.length) return;

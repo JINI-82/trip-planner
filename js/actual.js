@@ -53,12 +53,13 @@ function renderActual(trip){
 /* --- 목록 --- */
 function renderActList(trip, list){
   var allPhotos = list.reduce(function(n, v){ return n + v.photos.length; }, 0);
+  var dayWon = list.reduce(function(n, v){ return n + (v.spends||[]).reduce(function(m, s){ return m + spendKrw(s); }, 0); }, 0);
   document.getElementById('actSummary').innerHTML = list.length
-    ? '👣 '+niceDate(selectedDay)+' · 방문 <b>'+list.length+'</b>곳 · 사진 <b>'+allPhotos+'</b>장'
+    ? '👣 '+niceDate(selectedDay)+' · 방문 <b>'+list.length+'</b>곳 · 사진 <b>'+allPhotos+'</b>장'+(dayWon ? ' · 💳 <b>'+wonText(dayWon)+'</b>' : '')
     : '';
   var wrap = document.getElementById('actList');
   if(!list.length){
-    wrap.innerHTML = '<div class="emptyday">아직 실제 방문 기록이 없어요<br>📍 위치 등록이나 🖼 사진 넣기로 남겨보세요</div>';
+    wrap.innerHTML = '<div class="emptyday">아직 실제 방문 기록이 없어요<br>📍 위치 등록, 🖼 사진 넣기, 💳 가계부 넣기로 남겨보세요</div>';
     return;
   }
   var html = '';
@@ -72,7 +73,10 @@ function renderActList(trip, list){
       '<div class="body">'+
         '<div class="top"><span class="time">'+escapeHtml(v.time)+'</span><span class="tz">'+tzLabel(v.tz)+'</span>'+
           '<span class="name">'+escapeHtml(visitLabel(v, idx))+'</span></div>'+
-        '<div class="meta">'+(v.source==='gps' ? '📍 위치 등록' : '🖼 사진 '+v.photos.length+'장')+'</div>'+
+        '<div class="meta">'+visitMeta(v)+'</div>'+
+        ((v.spends||[]).length ? '<div class="spends">'+v.spends.map(function(s){
+            return '<div class="spend"><span class="t">💳 '+escapeHtml(s.title)+'</span><span class="a">'+escapeHtml(amountText(s))+'</span></div>';
+          }).join('')+'</div>' : '')+
         (v.photos.length ? '<div class="thumbs">'+v.photos.slice(0,6).map(function(p){
             return '<img src="'+escapeAttr(fileUrl(p.fileId))+'" data-file="'+escapeAttr(p.fileId)+'" alt="">';
           }).join('')+(v.photos.length>6 ? '<span class="more">+'+(v.photos.length-6)+'</span>' : '')+'</div>' : '')+
@@ -84,6 +88,15 @@ function renderActList(trip, list){
   wrap.querySelectorAll('[data-seg]').forEach(function(b){ b.addEventListener('click', function(){ openSegSheet(b.getAttribute('data-seg')); }); });
   wrap.querySelectorAll('[data-act="vedit"]').forEach(function(b){ b.addEventListener('click', function(){ openVisitSheet(b.getAttribute('data-id')); }); });
   wrap.querySelectorAll('.thumbs img').forEach(function(img){ img.addEventListener('click', function(){ openFile(img.getAttribute('data-file')); }); });
+}
+
+function visitMeta(v){
+  var a = [];
+  if(v.source==='gps') a.push('📍 위치 등록');
+  if(v.photos.length) a.push('🖼 사진 '+v.photos.length+'장');
+  if((v.spends||[]).length) a.push('💳 지출 '+v.spends.length+'건');
+  if(!hasLoc(v)) a.push('<span class="noloc">위치 없음</span>');
+  return a.join(' · ');
 }
 
 /* --- 지도 --- */
@@ -102,12 +115,14 @@ async function renderActMap(trip, list){
   }
   if(token!==actToken) return;
   clearActLayers();
+  var all = list;
+  list = list.filter(hasLoc);
   if(!list.length) return;
   var bounds = new gmaps.LatLngBounds();
   list.forEach(function(v, idx){
     var el = document.createElement('div');
     el.className = 'pin-wrap actual';
-    el.innerHTML = '<div class="pin-num"><span>'+(idx+1)+'</span></div><div class="pin-label">'+escapeHtml(v.time)+' · '+escapeHtml(visitLabel(v, idx))+'</div>';
+    el.innerHTML = '<div class="pin-num"><span>'+(all.indexOf(v)+1)+'</span></div><div class="pin-label">'+escapeHtml(v.time)+' · '+escapeHtml(visitLabel(v, all.indexOf(v)))+'</div>';
     var m = new gmaps.AdvancedMarkerElement({map:actMap, position:{lat:v.lat, lng:v.lng}, content:el, gmpClickable:true, zIndex:10+idx});
     m.addEventListener('gmp-click', function(){ jumpToVisitCard(v.id); });
     actLayers.markers.push(m);

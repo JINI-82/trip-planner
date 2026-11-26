@@ -85,12 +85,15 @@ var RE_TZ = /^[+-]\d{2}:\d{2}$/;
 function cleanVisits(list){
   if(!Array.isArray(list)) return [];
   return list.filter(function(v){
-    return v && typeof v==='object' && RE_DAY.test(v.day) && RE_TIME.test(v.time) && num(v.lat)!==null && num(v.lng)!==null && num(v.ms)!==null;
+    return v && typeof v==='object' && RE_DAY.test(v.day) && RE_TIME.test(v.time) && num(v.ms)!==null && ((num(v.lat)!==null && num(v.lng)!==null) || (v.lat==null && v.lng==null));
   }).map(function(v){
     return { id: cleanId(v.id), day: v.day, time: v.time, tz: RE_TZ.test(v.tz) ? v.tz : '+00:00', ms: v.ms,
-      lat: v.lat, lng: v.lng, name: str(v.name,100), memo: str(v.memo,2000),
+      lat: num(v.lat), lng: num(v.lng), name: str(v.name,100), memo: str(v.memo,2000),
       move: VISIT_MOVES.indexOf(v.move)!==-1 ? v.move : '',
-      source: v.source==='gps' ? 'gps' : 'photo',
+      source: v.source==='gps' || v.source==='expense' ? v.source : 'photo',
+      spends: (Array.isArray(v.spends) ? v.spends : []).filter(function(s){ return s && typeof s==='object' && num(s.amount)!==null; })
+        .map(function(s){ return {key:str(s.key,300), title:str(s.title,100), cat:str(s.cat,20), amount:s.amount, cur:str(s.cur,5),
+          krw: num(s.krw), memo:str(s.memo,200)}; }),
       photos: (Array.isArray(v.photos) ? v.photos : []).filter(function(p){ return p && typeof p.fileId==='string' && RE_ID.test(p.fileId); })
         .map(function(p){ return {fileId:p.fileId, key:str(p.key,200)}; }) };
   }).sort(function(a,b){ return a.ms-b.ms; });

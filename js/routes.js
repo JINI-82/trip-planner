@@ -63,7 +63,7 @@ function pruneRouteCache(trip){
   });
   // 실제 방문 구간
   var vdays = {};
-  (trip.visits||[]).forEach(function(v){ (vdays[v.day] = vdays[v.day]||[]).push(v); });
+  (trip.visits||[]).filter(hasLoc).forEach(function(v){ (vdays[v.day] = vdays[v.day]||[]).push(v); });
   Object.keys(vdays).forEach(function(d){
     var list = vdays[d].slice().sort(function(a,b){ return a.ms-b.ms; });
     for(var i=0;i<list.length-1;i++) used[routeKey(list[i], list[i+1])] = true;

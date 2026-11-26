@@ -78,8 +78,10 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
   <div id="mapActual" class="mapbox"></div>
   <div class="act-summary" id="actSummary"></div>
   <div id="actList"></div>
+  <button class="act-csv" id="btnCsv">💳 가계부 넣기 (CSV)</button>
 </div>
 <input type="file" id="photoInput" accept="image/*" multiple class="hide">
+<input type="file" id="csvInput" accept=".csv,text/csv" class="hide">
 
 <!-- 비교 탭 (6단계) -->
 <div id="pageCompare" class="page hide">
@@ -281,6 +283,7 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <script src="js/places.js"></script>
 <script src="js/overview.js"></script>
 <script src="js/visits.js"></script>
+<script src="js/expense.js"></script>
 <script src="js/actual.js"></script>
 <script src="js/compare.js"></script>
 <script src="js/memory.js"></script>
