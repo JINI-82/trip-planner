@@ -112,8 +112,8 @@ function drawRouteLines(splitIdx){
   var splitPoint = splitIdx==null ? 0 : splitIdx;
   var solid = ovRouteCoords.slice(0, splitPoint+1);
   var dashed = ovRouteCoords.slice(splitPoint);
-  if(solid.length>1) mapLayers.routeSolid = L.polyline(solid, {color:'#1b4b7a', weight:4, opacity:.9}).addTo(mapObj);
-  if(dashed.length>1) mapLayers.routeDashed = L.polyline(dashed, {color:'#9aa7b2', weight:3, dashArray:'2,8', opacity:.85}).addTo(mapObj);
+  if(solid.length>1) mapLayers.routeSolid = L.polyline(solid, {color:cssVar('--route'), weight:4, opacity:.9}).addTo(mapObj);
+  if(dashed.length>1) mapLayers.routeDashed = L.polyline(dashed, {color:cssVar('--route-rest'), weight:3, dashArray:'2,8', opacity:.85}).addTo(mapObj);
 }
 
 function jumpToItemCard(id){
