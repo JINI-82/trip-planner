@@ -21,6 +21,7 @@ function render(){
   renderSchedulePage(trip);
   if(isVisible('pageOverview')) renderOverview(trip);
   if(isVisible('pageActual')) renderActual(trip);
+  if(isVisible('pageCompare')) renderCompare(trip);
 }
 
 function renderDayTabs(trip){
@@ -42,6 +43,7 @@ function renderDayTabs(trip){
       if(firstCard) firstCard.scrollIntoView({behavior:'smooth', block:'center'});
       if(isVisible('pageOverview')) renderOverview(trip);
       if(isVisible('pageActual')) renderActual(trip);
+      if(isVisible('pageCompare')) renderCompare(trip);
     });
     wrap.appendChild(chip);
   });

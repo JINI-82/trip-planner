@@ -291,6 +291,8 @@ function switchPage(p){
   document.getElementById('btnPhotos').classList.toggle('hide', p!=='actual');
   if(plan && planView==='map'){ setTimeout(function(){ renderOverview(getTrip()); }, 30); }
   if(p==='actual'){ setTimeout(function(){ renderActual(getTrip()); }, 30); }
+  if(p==='compare'){ setTimeout(function(){ renderCompare(getTrip()); }, 30); }
+  else if(typeof stopReplay==='function') stopReplay(true);
 }
 
 /* ---------- 설정 시트 ---------- */

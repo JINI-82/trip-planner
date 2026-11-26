@@ -81,7 +81,15 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 
 <!-- 비교 탭 (6단계) -->
 <div id="pageCompare" class="page hide">
-  <div class="emptyday">계획과 실제 비교는 다음 단계에서 만들어요</div>
+  <div class="cmp-trip" id="cmpTrip"></div>
+  <div id="mapCompare" class="mapbox"></div>
+  <div class="replay hide" id="replayBar">
+    <button id="rpPlay">▶</button>
+    <button id="rpStop">⏹</button>
+    <div class="rp-clock" id="rpClock">--:--</div>
+    <div class="rp-legend"><span class="me">● 실제</span><span class="ghost">● 계획(유령)</span></div>
+  </div>
+  <div id="cmpDay"></div>
 </div>
 
 <div class="bottombar">
@@ -227,6 +235,7 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
   <div class="helpcard"><div class="h">🗓 일정 추가</div><div class="b">하단 '＋ 일정 추가'로 카테고리·시간·장소를 등록하면 자동으로 시간순 정렬돼요.</div></div>
   <div class="helpcard"><div class="h">🗺 오버뷰</div><div class="b">지도 위에서 그날의 동선을 캐릭터가 이동하며 보여줘요. 핀을 누르면 해당 일정으로 이동해요.</div></div>
   <div class="helpcard"><div class="h">👣 실제 방문</div><div class="b">실제 탭에서 '위치 등록'으로 지금 위치를 남기거나, '사진 넣기'로 여행 사진을 여러 장 넣으면 사진 속 위치·시간으로 방문이 자동으로 만들어져요. 방문 사이를 눌러 이동수단을 고를 수 있어요.</div></div>
+  <div class="helpcard"><div class="h">⚖️ 비교</div><div class="b">계획과 실제가 200m 안이면 자동으로 짝지어 계획대로·미방문·즉흥을 보여주고, 여행 전체로 계획파인지 즉흥파인지 알려줘요. ▶ 리플레이를 누르면 실제 캐릭터와 계획 유령 캐릭터가 하루를 따라 움직여요.</div></div>
   <div class="helpcard"><div class="h">⏰ 알람 & 캘린더</div><div class="b">일정마다 알람을 설정하거나, 캘린더(.ics)로 내보내 휴대폰 캘린더에 추가할 수 있어요.</div></div>
   <div class="helpcard"><div class="h">💾 오프라인 저장</div><div class="b">모든 데이터는 이 기기 안에만 저장돼요. 설정 → 백업 내보내기로 아이폰 '파일' 앱에 저장해두세요.</div></div>
   <div class="sheetbtns"><button class="save" id="helpClose" style="width:100%;">확인</button></div>
@@ -251,6 +260,7 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <script src="js/overview.js"></script>
 <script src="js/visits.js"></script>
 <script src="js/actual.js"></script>
+<script src="js/compare.js"></script>
 <script src="js/alarm.js"></script>
 <script src="js/main.js"></script>
 </body>
