@@ -133,8 +133,10 @@ function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
 function mapUrlFor(it, mode){
   if(it.mapUrl && it.mapUrl.trim()) return it.mapUrl.trim();
   var q = encodeURIComponent(it.place || it.name);
-  if(mode==='dir') return 'https://www.google.com/maps/dir/?api=1&destination='+q;
-  return 'https://www.google.com/maps/search/?api=1&query='+q;
+  // 구글 장소 id가 있으면 정확히 그 장소로 연다
+  var pid = it.placeId ? encodeURIComponent(it.placeId) : '';
+  if(mode==='dir') return 'https://www.google.com/maps/dir/?api=1&destination='+q+(pid?'&destination_place_id='+pid:'');
+  return 'https://www.google.com/maps/search/?api=1&query='+q+(pid?'&query_place_id='+pid:'');
 }
 
 function bindSchedulePageEvents(trip){

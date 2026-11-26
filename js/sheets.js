@@ -32,6 +32,7 @@ function openItemSheet(id){
   document.getElementById('itTime').value = it ? it.time : '09:00';
   document.getElementById('itName').value = it ? it.name : '';
   document.getElementById('itPlace').value = it ? it.place : '';
+  initPlaceField(it);
   document.getElementById('itMapUrl').value = it ? (it.mapUrl||'') : '';
   document.getElementById('itAlarm').value = it ? (it.alarm||'') : '';
   document.getElementById('itMemo').value = it ? (it.memo||'') : '';
@@ -68,15 +69,6 @@ function resizeImage(file, cb){
   img.src = src;
 }
 
-async function geocode(place){
-  try{
-    var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(place));
-    var data = await res.json();
-    if(data && data[0]) return {lat:+data[0].lat, lng:+data[0].lon};
-  }catch(e){ console.warn('geocode 실패', e); }
-  return null;
-}
-
 async function saveItem(){
   var trip = getTrip();
   var name = document.getElementById('itName').value.trim();
@@ -99,20 +91,29 @@ async function saveItem(){
   it.move=curMove; it.alarm=alarm; it.memo=memo; it.userDocs=pendingAttachments.slice();
   // alarmFired는 '울린 날짜 시각' 문자열이라 날짜·알람 시간을 바꾸면 저절로 다시 울린다
   if(typeof it.alarmFired!=='string') it.alarmFired = '';
-  if(!place){ it.lat=null; it.lng=null; }
+  var needGeocode = false;
+  if(pickedPlace && pickedPlace.text===place){
+    // 목록에서 고른 장소 → 좌표 바로 저장
+    it.placeId = pickedPlace.placeId; it.address = pickedPlace.address;
+    it.lat = pickedPlace.lat; it.lng = pickedPlace.lng; it.geoMiss = false;
+  } else if(!place){
+    it.placeId=''; it.address=''; it.lat=null; it.lng=null; it.geoMiss=false;
+  } else if(placeChanged || it.lat==null){
+    // 직접 친 글자 → 저장 후 텍스트 검색으로 좌표 찾기
+    it.placeId=''; it.address=''; it.lat=null; it.lng=null; it.geoMiss=false;
+    needGeocode = true;
+  }
 
   save(); render(); closeSheet('sheetItem'); toast(isNew?'일정을 추가했어요':'일정을 저장했어요');
 
-  if(place && (it.lat==null || placeChanged)){
-    var pos = await geocode(place);
+  if(needGeocode && hasMapsKey()){
+    var pos = await geocodeText(place);
     if(it.place!==place) return; // 그 사이 다시 수정됨
-    if(pos){
-      it.lat=pos.lat; it.lng=pos.lng; save();
-      // 좌표가 생겼으니 오버뷰를 보고 있으면 다시 그린다
-      if(getTrip()===trip && !document.getElementById('pageOverview').classList.contains('hide')) renderOverview(trip);
-    } else {
-      toast('장소 위치를 찾지 못했어요. 지도에는 표시되지 않아요');
-    }
+    if(pos){ it.lat=pos.lat; it.lng=pos.lng; }
+    else { it.geoMiss = true; toast('장소 위치를 찾지 못했어요. 목록에서 골라주세요'); }
+    save();
+    // 좌표가 생겼으니 오버뷰를 보고 있으면 다시 그린다
+    if(pos && getTrip()===trip && !document.getElementById('pageOverview').classList.contains('hide')) renderOverview(trip);
   }
 }
 

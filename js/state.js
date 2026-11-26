@@ -65,6 +65,17 @@ function num(v){ return (typeof v==='number' && isFinite(v)) ? v : null; }
 // javascript:, data: 같은 위험한 링크는 버린다
 function safeUrl(u){ return /^\s*(javascript|data|vbscript):/i.test(u||'') ? '' : (u||''); }
 function cleanId(v){ return (typeof v==='string' && RE_ID.test(v)) ? v : uid(); }
+// 저장된 구간 경로 { 'MODE|lat,lng|lat,lng': [[lat,lng],...] }
+function cleanRoutes(r){
+  var out = {};
+  if(!r || typeof r!=='object') return out;
+  Object.keys(r).forEach(function(k){
+    var v = r[k];
+    if(k.length>120 || !/^[A-Z]+\|-?[\d.]+,-?[\d.]+\|-?[\d.]+,-?[\d.]+$/.test(k) || !Array.isArray(v) || v.length<2 || v.length>2000) return;
+    if(v.every(function(p){ return Array.isArray(p) && p.length===2 && num(p[0])!==null && num(p[1])!==null; })) out[k] = v;
+  });
+  return out;
+}
 function normalizeState(data){
   if(!data || typeof data!=='object' || !Array.isArray(data.trips) || !data.trips.length) return null;
   var trips = [];
@@ -79,6 +90,7 @@ function normalizeState(data){
       note: str(t.note, 100),
       cities: Array.isArray(t.cities) ? t.cities.map(function(c){return str(c,50);}).filter(Boolean) : [],
       bgFile: (typeof t.bgFile==='string' && RE_ID.test(t.bgFile)) ? t.bgFile : undefined,
+      routes: cleanRoutes(t.routes),
       // 옛 형식 (absorbLegacyFiles가 파일로 옮김)
       bgImage: (!t.bgFile && typeof t.bgImage==='string' && /^data:image\//.test(t.bgImage)) ? t.bgImage : undefined,
       flights: (Array.isArray(t.flights) ? t.flights : []).filter(function(f){ return f && typeof f==='object'; }).map(function(f){
@@ -96,6 +108,7 @@ function normalizeState(data){
           alarm: RE_TIME.test(it.alarm) ? it.alarm : '',
           alarmFired: typeof it.alarmFired==='string' ? it.alarmFired : '',
           lat: num(it.lat), lng: num(it.lng),
+          placeId: str(it.placeId, 300), address: str(it.address, 300), geoMiss: it.geoMiss===true,
           userDocs: (Array.isArray(it.userDocs) ? it.userDocs : []).map(function(d){
             if(!d || typeof d.name!=='string') return null;
             if(typeof d.fileId==='string' && RE_ID.test(d.fileId)) return {name: str(d.name,100), fileId: d.fileId};

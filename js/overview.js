@@ -1,23 +1,43 @@
 "use strict";
 
-/* ---------- 오버뷰(지도) ---------- */
-function ensureMap(){
-  if(mapObj) return mapObj;
-  mapObj = L.map('map', {zoomControl:true, attributionControl:true}).setView([35.68,139.76], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom:19, attribution:'&copy; OpenStreetMap'
-  }).addTo(mapObj);
+/* ---------- 오버뷰(지도) — 구글맵 ----------
+ * 좌표는 앱 안에서 [lat, lng] 배열로 다루고, 구글에 넘길 때만 {lat, lng}로 바꾼다.
+ * 다크/라이트는 지도를 만들 때만 정할 수 있어서, 모드가 바뀌면 지도를 새로 만든다. */
+var mapScheme = null;   // 지금 지도의 'dark' | 'light'
+
+function mapMessage(msg){
+  var el = document.getElementById('map');
+  el.innerHTML = '<div class="map-msg">'+escapeHtml(msg)+'</div>';
+}
+
+async function ensureMap(){
+  var g = await loadGoogleMaps();
+  var scheme = isDarkNow() ? 'dark' : 'light';
+  if(mapObj && mapScheme===scheme) return mapObj;
+  // 처음이거나 화면 모드가 바뀜 → 새로 만든다
+  clearMapLayers();
+  var el = document.getElementById('map');
+  el.innerHTML = '';
+  mapObj = new g.Map(el, {
+    center: {lat:35.68, lng:139.76}, zoom: 12,
+    mapId: GOOGLE_MAP_ID || 'DEMO_MAP_ID',
+    colorScheme: scheme==='dark' ? g.ColorScheme.DARK : g.ColorScheme.LIGHT,
+    disableDefaultUI: true, zoomControl: true, clickableIcons: false,
+    gestureHandling: 'greedy'
+  });
+  mapScheme = scheme;
   return mapObj;
 }
+
 function clearMapLayers(){
-  mapLayers.markers.forEach(function(m){ mapObj.removeLayer(m); });
+  mapLayers.markers.forEach(function(m){ m.map = null; });
   mapLayers.markers=[];
-  if(mapLayers.routeSolid){ mapObj.removeLayer(mapLayers.routeSolid); mapLayers.routeSolid=null; }
-  if(mapLayers.routeDashed){ mapObj.removeLayer(mapLayers.routeDashed); mapLayers.routeDashed=null; }
-  if(mapLayers.char){ mapObj.removeLayer(mapLayers.char); mapLayers.char=null; }
+  if(mapLayers.routeSolid){ mapLayers.routeSolid.setMap(null); mapLayers.routeSolid=null; }
+  if(mapLayers.routeDashed){ mapLayers.routeDashed.setMap(null); mapLayers.routeDashed=null; }
+  if(mapLayers.char){ mapLayers.char.map = null; mapLayers.char=null; }
 }
 var ovItemsCache = [];
-var ovRouteCoords = []; // 전체 route latlng 리스트 (OSRM 또는 직선)
+var ovRouteCoords = []; // 전체 경로 [lat,lng] 리스트 (구글 경로 또는 직선)
 var ovSegRanges = []; // 각 아이템 사이 route coords index 구간 (구간 i의 startIdx = 구간 i-1의 endIdx)
 var ovLastKey = null;  // 마지막으로 그린 여행id|날짜
 var ovBuildToken = 0;  // 경로 요청이 겹칠 때 늦게 온 옛 결과를 버리기 위한 번호
@@ -29,48 +49,65 @@ function nodeIdx(i){
   return seg.endIdx;
 }
 
-function renderOverview(trip){
+function setOvEmpty(name, meta){
+  document.getElementById('ovCurrentName').textContent = name;
+  document.getElementById('ovCurrentMeta').textContent = meta;
+  document.getElementById('ovProgressBar').style.width='0%';
+  document.getElementById('ovProgressLabel').textContent='오늘의 여정 0/0';
+}
+
+async function renderOverview(trip){
   if(!trip) return;
-  ensureMap();
-  setTimeout(function(){ mapObj.invalidateSize(); }, 50);
-  clearMapLayers();
+  var token = ++ovBuildToken;
   var items = sortedItems(trip, selectedDay).filter(function(i){ return i.lat!=null && i.lng!=null; });
   ovItemsCache = items;
   // 여행이나 날짜가 바뀌면 첫 일정부터 다시 시작
   var key = trip.id+'|'+selectedDay;
   if(key!==ovLastKey){ ovIndex = 0; ovLastKey = key; }
   if(ovIndex>=items.length) ovIndex = Math.max(0, items.length-1);
-  ovBuildToken++;
+  ovRouteCoords = []; ovSegRanges = [];
+
+  if(!hasMapsKey()){
+    clearMapLayers(); mapObj = null;
+    mapMessage('구글 지도 키가 아직 없어요. js/config.js에 키를 넣으면 지도가 보여요.');
+    if(items.length) updateOverviewPanel(); else setOvEmpty('일정이 없어요', '');
+    return;
+  }
+  try{ await ensureMap(); }
+  catch(e){
+    console.warn('구글 지도 불러오기 실패', e);
+    mapObj = null; mapMessage('지도를 불러오지 못했어요. 인터넷 연결이나 API 키 설정을 확인해주세요.');
+    return;
+  }
+  if(token!==ovBuildToken) return;
+  clearMapLayers();
+  // 좌표 없는 옛 일정은 검색어로 한 번 찾아본다 (찾으면 다시 그림)
+  geocodeMissing(trip, selectedDay);
 
   if(items.length===0){
-    document.getElementById('ovCurrentName').textContent = '좌표가 있는 일정이 없어요';
-    document.getElementById('ovCurrentMeta').textContent = '일정에 장소를 입력하면 지도에 표시돼요';
-    document.getElementById('ovProgressBar').style.width='0%';
-    document.getElementById('ovProgressLabel').textContent='오늘의 여정 0/0';
+    setOvEmpty('좌표가 있는 일정이 없어요', '일정에 장소를 검색해서 고르면 지도에 표시돼요');
     return;
   }
 
-  var bounds = [];
+  var bounds = new gmaps.LatLngBounds();
   items.forEach(function(it, idx){
-    var icon = L.divIcon({html:'<div class="pin-num"><span>'+(idx+1)+'</span></div>', className:'', iconSize:[26,26], iconAnchor:[13,26]});
-    var m = L.marker([it.lat,it.lng], {icon:icon}).addTo(mapObj);
-    var label = L.marker([it.lat,it.lng], {
-      icon: L.divIcon({html:'<div class="pin-label">'+it.time+' · '+escapeHtml(it.name)+'</div>', className:'', iconSize:[0,0], iconAnchor:[-16,-34]})
-    }).addTo(mapObj);
-    m.on('click', function(){ jumpToItemCard(it.id); });
-    mapLayers.markers.push(m); mapLayers.markers.push(label);
-    bounds.push([it.lat,it.lng]);
+    var el = document.createElement('div');
+    el.className = 'pin-wrap';
+    el.innerHTML = '<div class="pin-num"><span>'+(idx+1)+'</span></div><div class="pin-label">'+escapeHtml(it.time)+' · '+escapeHtml(it.name)+'</div>';
+    var m = new gmaps.AdvancedMarkerElement({map:mapObj, position:{lat:it.lat, lng:it.lng}, content:el, gmpClickable:true, zIndex:10+idx});
+    m.addEventListener('gmp-click', function(){ jumpToItemCard(it.id); });
+    mapLayers.markers.push(m);
+    bounds.extend({lat:it.lat, lng:it.lng});
   });
-  if(bounds.length>1) mapObj.fitBounds(bounds, {padding:[36,36]});
-  else mapObj.setView(bounds[0], 15);
+  if(items.length>1) mapObj.fitBounds(bounds, 48);
+  else { mapObj.setCenter({lat:items[0].lat, lng:items[0].lng}); mapObj.setZoom(15); }
 
-  buildRouteAndShow(items);
+  // 경로 받기 전에도 핀·캐릭터는 바로 보이게
+  updateOverviewPanel();
+  buildRouteAndShow(trip, items, token);
 }
 
-async function buildRouteAndShow(items){
-  var token = ovBuildToken;
-  ovRouteCoords = [];
-  ovSegRanges = [];
+async function buildRouteAndShow(trip, items, token){
   if(items.length<2){
     if(items.length===1) ovRouteCoords=[[items[0].lat,items[0].lng]];
     updateOverviewPanel();
@@ -78,47 +115,43 @@ async function buildRouteAndShow(items){
   }
   var routeCoords = [], segRanges = [];
   for(var i=0;i<items.length-1;i++){
-    var a=items[i], b=items[i+1];
-    var segCoords = null;
-    try{
-      var url = 'https://router.project-osrm.org/route/v1/driving/'+a.lng+','+a.lat+';'+b.lng+','+b.lat+'?overview=full&geometries=geojson';
-      var res = await fetch(url);
-      var data = await res.json();
-      if(data && data.routes && data.routes[0]){
-        segCoords = data.routes[0].geometry.coordinates.map(function(c){return [c[1],c[0]];});
-      }
-    }catch(e){ console.warn('OSRM 실패, 직선 대체', e); }
+    var segCoords = await getSegmentPath(trip, items[i], items[i+1]);
     if(token!==ovBuildToken) return; // 그 사이 다른 날/여행으로 바뀜
-    if(!segCoords) segCoords = [[a.lat,a.lng],[b.lat,b.lng]];
     // 구간 시작점 = 앞 구간의 끝점(공유). 중복 좌표는 한 번만 넣는다
     var startIdx = i>0 ? routeCoords.length-1 : 0;
     if(i>0) segCoords = segCoords.slice(1);
     routeCoords = routeCoords.concat(segCoords);
     segRanges.push({from:i, to:i+1, startIdx:startIdx, endIdx:routeCoords.length-1});
   }
+  // 애니메이션 중이면 끝날 때까지 기다렸다 반영
+  while(ovAnimating){ await new Promise(function(r){ setTimeout(r, 100); }); if(token!==ovBuildToken) return; }
   ovRouteCoords = routeCoords;
   ovSegRanges = segRanges;
   updateOverviewPanel();
 }
 
-function segRangeForIndex(idx){
-  return ovSegRanges[idx] || null;
-}
-
+// 실선/점선은 한 번 만든 선을 재사용하고 path만 바꾼다 (애니메이션 중 매 프레임 호출)
 function drawRouteLines(splitIdx){
-  if(mapLayers.routeSolid){ mapObj.removeLayer(mapLayers.routeSolid); mapLayers.routeSolid=null; }
-  if(mapLayers.routeDashed){ mapObj.removeLayer(mapLayers.routeDashed); mapLayers.routeDashed=null; }
-  if(ovRouteCoords.length<2) return;
+  if(!mapObj) return;
+  if(ovRouteCoords.length<2){
+    if(mapLayers.routeSolid) mapLayers.routeSolid.setPath([]);
+    if(mapLayers.routeDashed) mapLayers.routeDashed.setPath([]);
+    return;
+  }
+  if(!mapLayers.routeSolid){
+    mapLayers.routeSolid = new gmaps.Polyline({map:mapObj, strokeColor:cssVar('--route'), strokeWeight:4, strokeOpacity:.9, clickable:false, zIndex:2});
+    mapLayers.routeDashed = new gmaps.Polyline({map:mapObj, strokeOpacity:0, clickable:false, zIndex:1,
+      icons:[{icon:{path:'M 0,-1 0,1', strokeOpacity:.9, strokeColor:cssVar('--route-rest'), scale:2}, offset:'0', repeat:'10px'}]});
+  }
   var splitPoint = splitIdx==null ? 0 : splitIdx;
   var solid = ovRouteCoords.slice(0, splitPoint+1);
   var dashed = ovRouteCoords.slice(splitPoint);
-  if(solid.length>1) mapLayers.routeSolid = L.polyline(solid, {color:cssVar('--route'), weight:4, opacity:.9}).addTo(mapObj);
-  if(dashed.length>1) mapLayers.routeDashed = L.polyline(dashed, {color:cssVar('--route-rest'), weight:3, dashArray:'2,8', opacity:.85}).addTo(mapObj);
+  mapLayers.routeSolid.setPath(solid.length>1 ? solid.map(toLL) : []);
+  mapLayers.routeDashed.setPath(dashed.length>1 ? dashed.map(toLL) : []);
 }
 
 function jumpToItemCard(id){
   switchPage('schedule');
-  document.getElementById('tabSchedule').click();
   setTimeout(function(){
     var card = document.querySelector('.itemcard[data-id="'+id+'"]');
     if(card){ card.scrollIntoView({behavior:'smooth', block:'center'}); card.classList.add('flash'); setTimeout(function(){card.classList.remove('flash');}, 1200); }
@@ -138,12 +171,19 @@ function updateOverviewPanel(){
   showCharacterAt(ovIndex);
 }
 
+function charContent(move, walking){
+  var el = document.createElement('div');
+  el.className = 'char-wrap';
+  el.innerHTML = charSvg(move, walking);
+  return el;
+}
+
 function showCharacterAt(idx){
-  if(mapLayers.char){ mapObj.removeLayer(mapLayers.char); mapLayers.char=null; }
+  if(!mapObj) return;
+  if(mapLayers.char){ mapLayers.char.map = null; mapLayers.char=null; }
   var it = ovItemsCache[idx];
   if(!it) return;
-  var icon = L.divIcon({html: charSvg(it.move,false), className:'', iconSize:[34,34], iconAnchor:[17,30]});
-  mapLayers.char = L.marker([it.lat,it.lng], {icon:icon, zIndexOffset:1000}).addTo(mapObj);
+  mapLayers.char = new gmaps.AdvancedMarkerElement({map:mapObj, position:{lat:it.lat, lng:it.lng}, content:charContent(it.move,false), zIndex:1000});
 }
 
 function charSvg(move, walking){
@@ -170,7 +210,7 @@ function charSvg(move, walking){
 }
 
 function animateBetween(fromIdx, toIdx){
-  if(ovAnimating) return;
+  if(ovAnimating || !mapObj) return;
   var items = ovItemsCache;
   var a = items[fromIdx], b = items[toIdx];
   if(!a || !b){ ovIndex=toIdx; updateOverviewPanel(); return; }
@@ -183,22 +223,22 @@ function animateBetween(fromIdx, toIdx){
   } else {
     coords = [[a.lat,a.lng],[b.lat,b.lng]];
   }
-  var distKm = mapObj.distance([a.lat,a.lng],[b.lat,b.lng])/1000;
+  var distKm = distanceKm([a.lat,a.lng],[b.lat,b.lng]);
   var duration = Math.max(1600, Math.min(4000, 1600 + distKm*300));
   ovAnimating = true;
-  if(mapLayers.char){ mapObj.removeLayer(mapLayers.char); }
-  var icon = L.divIcon({html: charSvg(b.move,true), className:'', iconSize:[34,34], iconAnchor:[17,30]});
-  mapLayers.char = L.marker(coords[0], {icon:icon, zIndexOffset:1000}).addTo(mapObj);
+  if(mapLayers.char){ mapLayers.char.map = null; }
+  mapLayers.char = new gmaps.AdvancedMarkerElement({map:mapObj, position:toLL(coords[0]), content:charContent(b.move,true), zIndex:1000});
   var startTime = null;
   var token = ovBuildToken;
+  var lastPan = 0;
   function step(ts){
     // 애니메이션 중 지도를 다시 그렸으면(날짜 전환·좌표 갱신 등) 여기서 멈춘다
     if(token!==ovBuildToken || !mapLayers.char){ ovAnimating=false; return; }
     if(!startTime) startTime = ts;
     var t = Math.min(1, (ts-startTime)/duration);
     var pos = pointAlong(coords, t);
-    mapLayers.char.setLatLng(pos);
-    if(!mapObj.getBounds().pad(-0.15).contains(pos)){ mapObj.panTo(pos, {animate:true, duration:0.3}); }
+    mapLayers.char.position = toLL(pos);
+    if(ts-lastPan>300 && !nearCenter(pos)){ mapObj.panTo(toLL(pos)); lastPan = ts; }
     // 캐릭터 위치까지 실선 (앞으로 가든 뒤로 가든 같은 규칙)
     if(hasRoute) drawRouteLines(Math.round(p0 + (p1-p0)*t));
     if(t<1){ requestAnimationFrame(step); }
@@ -209,6 +249,14 @@ function animateBetween(fromIdx, toIdx){
     }
   }
   requestAnimationFrame(step);
+}
+// 화면 가장자리 15% 안쪽에 있으면 true (밖이면 지도가 캐릭터를 따라간다)
+function nearCenter(pos){
+  var bnd = mapObj.getBounds();
+  if(!bnd) return true;
+  var ne = bnd.getNorthEast(), sw = bnd.getSouthWest();
+  var padLat = (ne.lat()-sw.lat())*0.15, padLng = (ne.lng()-sw.lng())*0.15;
+  return pos[0] < ne.lat()-padLat && pos[0] > sw.lat()+padLat && pos[1] < ne.lng()-padLng && pos[1] > sw.lng()+padLng;
 }
 function pointAlong(coords, t){
   if(coords.length<2) return coords[0];

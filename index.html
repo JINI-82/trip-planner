@@ -14,8 +14,6 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 </script>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192'%3E%3Crect width='192' height='192' rx='40' fill='%231b4b7a'/%3E%3Ctext x='96' y='128' font-size='100' text-anchor='middle' fill='%23e0a94e' font-family='sans-serif'%3EJ%3C/text%3E%3C/svg%3E">
 <link id="manifestLink" rel="manifest">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -85,7 +83,11 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
     <div class="field"><label>시간</label><input type="time" id="itTime"></div>
   </div>
   <div class="field"><label>이름</label><input type="text" id="itName" placeholder="예: 츠키지 시장"></div>
-  <div class="field"><label>지도 검색어 / 주소</label><input type="text" id="itPlace" placeholder="예: 東京都中央区築地"></div>
+  <div class="field placefield"><label>장소 (검색해서 고르면 지도에 표시돼요)</label>
+    <input type="text" id="itPlace" placeholder="예: 츠키지 시장, 침사추이" autocomplete="off">
+    <div class="place-suggest hide" id="placeSuggest"></div>
+    <div class="place-picked hide" id="placePicked"></div>
+  </div>
   <div class="field"><label>구글맵 링크 (선택)</label><input type="text" id="itMapUrl" placeholder="https://maps.app.goo.gl/..."></div>
   <div class="field"><label>이동 방법</label><div class="chiprow" id="moveChips"></div></div>
   <div class="field"><label>알람 시간 (선택)</label><input type="time" id="itAlarm"></div>
@@ -184,6 +186,8 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <div id="alarmpop"><div class="t" id="alarmText"></div><button id="alarmClose">확인</button></div>
 <div id="toastwrap"></div>
 
+<script src="js/config.js"></script>
+<script src="js/maps.js"></script>
 <script src="js/db.js"></script>
 <script src="js/state.js"></script>
 <script src="js/util.js"></script>
@@ -192,6 +196,8 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <script src="js/backup.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/ics.js"></script>
+<script src="js/routes.js"></script>
+<script src="js/places.js"></script>
 <script src="js/overview.js"></script>
 <script src="js/alarm.js"></script>
 <script src="js/main.js"></script>

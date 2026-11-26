@@ -31,6 +31,7 @@ async function init(){
   if(!state.activeId || !getTripById(state.activeId)) state.activeId = state.trips[0].id;
   save();        // 옛 데이터 이전·정리 결과 저장
   pruneFiles();  // 안 쓰는 파일 정리
+  state.trips.forEach(pruneRouteCache); // 안 쓰는 저장 경로 정리
   requestPersist();
   selectedDay = null;
   setupManifest();

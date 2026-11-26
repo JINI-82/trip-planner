@@ -5,7 +5,7 @@
   /* 테마별로 바뀌는 보조 토큰 */
   --bar:rgba(255,255,255,.92); --accent-soft:#fdecdf; --danger:#c0392b; --danger-soft:#fdeceb; --active-soft:#eef4fa;
   --hdr1:#1b4b7a; --hdr2:#3f7cb0; --hdr-overlay:rgba(27,75,122,.15);
-  --pin-label:#1b4b7a; --chip-city:#e0a94e; --route:#1b4b7a; --route-rest:#9aa7b2; --tile-filter:none;
+  --pin-label:#1b4b7a; --chip-city:#e0a94e; --route:#1b4b7a; --route-rest:#9aa7b2;
   color-scheme:light;
 }
 /* 다크: 기프티콘함 다크 톤(따뜻한 베이지·브라운) + 주황 포인트.
@@ -16,7 +16,6 @@
   --bar:rgba(20,18,16,.92); --accent-soft:#3a2418; --danger:#ff8a7a; --danger-soft:#2A1A18; --active-soft:#2a211b;
   --hdr1:#3b2a1f; --hdr2:#6a4a33; --hdr-overlay:rgba(40,25,15,.2);
   --pin-label:#3a2c22; --chip-city:#fff3e6; --route:#e08a5f; --route-rest:#7d7268;
-  --tile-filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) sepia(.25);
   color-scheme:dark;
 }
 @media (prefers-color-scheme: dark){
@@ -26,7 +25,6 @@
     --bar:rgba(20,18,16,.92); --accent-soft:#3a2418; --danger:#ff8a7a; --danger-soft:#2A1A18; --active-soft:#2a211b;
     --hdr1:#3b2a1f; --hdr2:#6a4a33; --hdr-overlay:rgba(40,25,15,.2);
     --pin-label:#3a2c22; --chip-city:#fff3e6; --route:#e08a5f; --route-rest:#7d7268;
-    --tile-filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) sepia(.25);
     color-scheme:dark;
   }
 }
@@ -222,11 +220,24 @@ h1,h2,h3,p{margin:0;}
 .walk .leg2{animation:legswing .5s infinite alternate-reverse ease-in-out;}
 @keyframes legswing{from{transform:rotate(-18deg);}to{transform:rotate(18deg);}}
 
-/* 다크에서 지도 타일 어둡게 (3단계 구글맵 전환 전 임시) */
-.leaflet-tile-pane{filter:var(--tile-filter);}
-.leaflet-container{background:var(--bg);}
-/* 지도 안쪽 레이어(z-index 400~)가 상단바·하단바·시트 위로 올라오지 않게 가둔다 */
-#map{position:relative;z-index:0;isolation:isolate;}
+/* 지도 안쪽 레이어가 상단바·하단바·시트 위로 올라오지 않게 가둔다 */
+#map{position:relative;z-index:0;isolation:isolate;background:var(--card);}
+.map-msg{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:13px;color:var(--sub);line-height:1.5;}
+/* 핀: 아래 가운데가 좌표. 라벨은 핀 오른쪽 아래 */
+.pin-wrap{position:relative;width:26px;height:26px;}
+.pin-wrap .pin-label{position:absolute;left:29px;top:34px;}
+.char-wrap{width:34px;height:34px;transform:translateY(4px);}
+
+/* 장소 검색 */
+.placefield{position:relative;}
+.place-suggest{margin-top:6px;border:1.5px solid var(--border);border-radius:12px;background:var(--card);overflow:hidden;}
+.place-suggest .sg{display:block;width:100%;text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);}
+.place-suggest .sg:last-child{border-bottom:none;}
+.place-suggest .sg:active{transform:none;background:var(--bg);}
+.place-suggest .sg b{display:block;font-size:13.5px;}
+.place-suggest .sg span{display:block;font-size:11.5px;color:var(--sub);margin-top:2px;}
+.place-picked{margin-top:6px;font-size:12px;color:var(--navy2);background:var(--bg);padding:7px 10px;border-radius:10px;}
+.place-picked span{display:block;color:var(--sub);margin-top:2px;}
 
 /* 화면 모드 선택 */
 .seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:2px;gap:2px;}
