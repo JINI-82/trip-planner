@@ -167,7 +167,8 @@ h1,h2,h3,p{margin:0;}
 .setrow{display:flex;align-items:center;justify-content:space-between;padding:13px 2px;border-bottom:1px solid var(--border);}
 .setrow:last-child{border-bottom:none;}
 .setrow .l{font-size:14px;font-weight:700;}
-.setrow .r{font-size:12.5px;color:var(--navy2);font-weight:700;}
+.setrow .r{font-size:12.5px;color:var(--navy2);font-weight:700;flex:0 0 auto;}
+.setrow .hint{font-size:11.5px;font-weight:500;color:var(--sub);margin-top:2px;}
 .helpcard{background:var(--bg);border-radius:14px;padding:14px;margin-bottom:10px;}
 .helpcard .h{font-weight:800;font-size:14px;margin-bottom:4px;}
 .helpcard .b{font-size:12.5px;color:var(--sub);line-height:1.5;}

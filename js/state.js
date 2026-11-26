@@ -33,14 +33,22 @@ var mapLayers = { markers:[], routeSolid:null, routeDashed:null, char:null };
 function safeLS(fn, fallback){
   try { return fn(); } catch(e){ console.warn('localStorage 오류', e); return fallback; }
 }
-function load(){
-  var raw = safeLS(function(){ return localStorage.getItem(LS_KEY); }, null);
-  if(raw){
-    try {
+// IndexedDB에서 읽고, 없으면 옛 localStorage 데이터를 한 번 옮겨온다 (옛 데이터는 지우지 않고 남겨둠)
+async function loadState(){
+  try{
+    var raw = await dbGetMeta('state');
+    if(typeof raw==='string'){
       var data = normalizeState(JSON.parse(raw));
       if(data) return data;
       console.warn('저장된 데이터 형식이 올바르지 않아요');
-    } catch(e){ console.warn('데이터 파싱 오류', e); }
+    }
+  }catch(e){ console.warn('IndexedDB 읽기 오류', e); }
+  var old = safeLS(function(){ return localStorage.getItem(LS_KEY); }, null);
+  if(old){
+    try{
+      var legacy = normalizeState(JSON.parse(old));
+      if(legacy){ absorbLegacyFiles(legacy); console.info('localStorage 데이터를 IndexedDB로 옮겼어요'); return legacy; }
+    }catch(e){ console.warn('옛 데이터 파싱 오류', e); }
   }
   return seedData();
 }
@@ -51,6 +59,7 @@ var RE_DAY = /^\d{4}-\d{2}-\d{2}$/;
 var RE_TIME = /^\d{2}:\d{2}$/;
 var RE_DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 var RE_ID = /^[A-Za-z0-9_-]{1,40}$/;
+var RE_DOC_DATA = /^data:(image\/[a-z0-9+.-]+|application\/pdf);base64,/i;
 function str(v, max){ return typeof v==='string' ? v.slice(0, max||500) : ''; }
 function num(v){ return (typeof v==='number' && isFinite(v)) ? v : null; }
 // javascript:, data: 같은 위험한 링크는 버린다
@@ -69,7 +78,9 @@ function normalizeState(data){
       start: t.start, end: end,
       note: str(t.note, 100),
       cities: Array.isArray(t.cities) ? t.cities.map(function(c){return str(c,50);}).filter(Boolean) : [],
-      bgImage: (typeof t.bgImage==='string' && /^data:image\//.test(t.bgImage)) ? t.bgImage : undefined,
+      bgFile: (typeof t.bgFile==='string' && RE_ID.test(t.bgFile)) ? t.bgFile : undefined,
+      // 옛 형식 (absorbLegacyFiles가 파일로 옮김)
+      bgImage: (!t.bgFile && typeof t.bgImage==='string' && /^data:image\//.test(t.bgImage)) ? t.bgImage : undefined,
       flights: (Array.isArray(t.flights) ? t.flights : []).filter(function(f){ return f && typeof f==='object'; }).map(function(f){
         return { id: cleanId(f.id), fromCode: str(f.fromCode,4), toCode: str(f.toCode,4),
           fromCity: str(f.fromCity,50), toCity: str(f.toCity,50),
@@ -85,17 +96,25 @@ function normalizeState(data){
           alarm: RE_TIME.test(it.alarm) ? it.alarm : '',
           alarmFired: typeof it.alarmFired==='string' ? it.alarmFired : '',
           lat: num(it.lat), lng: num(it.lng),
-          userDocs: (Array.isArray(it.userDocs) ? it.userDocs : []).filter(function(d){
-            return d && typeof d.name==='string' && typeof d.data==='string' && /^data:(image\/[a-z+.-]+|application\/pdf);base64,/.test(d.data);
-          }).map(function(d){ return {name: str(d.name,100), data: d.data}; }) };
+          userDocs: (Array.isArray(it.userDocs) ? it.userDocs : []).map(function(d){
+            if(!d || typeof d.name!=='string') return null;
+            if(typeof d.fileId==='string' && RE_ID.test(d.fileId)) return {name: str(d.name,100), fileId: d.fileId};
+            // 옛 형식 (absorbLegacyFiles가 파일로 옮김)
+            if(typeof d.data==='string' && RE_DOC_DATA.test(d.data)) return {name: str(d.name,100), data: d.data};
+            return null;
+          }).filter(Boolean) };
       })
     });
   }
   var activeId = trips.some(function(t){return t.id===data.activeId;}) ? data.activeId : trips[0].id;
   return { trips: trips, activeId: activeId };
 }
+// 화면은 메모리의 state를 바로 쓰고, 저장은 순서대로 뒤에서 IndexedDB에 기록
+var saveChain = Promise.resolve();
 function save(){
-  safeLS(function(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); return true; }, false);
+  var json = JSON.stringify(state);
+  saveChain = saveChain.then(function(){ return dbSetMeta('state', json); }).catch(storageError);
+  return saveChain;
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 

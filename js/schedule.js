@@ -14,7 +14,8 @@ function render(){
   document.getElementById('headerLabel').textContent = headerLabelText(trip);
   document.getElementById('ddayBadge').textContent = calcDday(trip);
   var bg = document.getElementById('headerBg');
-  bg.style.backgroundImage = trip.bgImage ? 'url('+trip.bgImage+')' : '';
+  var bgUrl = trip.bgFile ? fileUrl(trip.bgFile) : '';
+  bg.style.backgroundImage = bgUrl ? 'url("'+bgUrl+'")' : '';
 
   renderDayTabs(trip);
   renderSchedulePage(trip);
@@ -67,8 +68,8 @@ function renderSchedulePage(trip){
   if(docs.length){
     html += '<div class="sectiontitle">📎 예약 서류함</div><div class="doclist">';
     docs.forEach(function(d){
-      var isPdf = /pdf/.test(d.doc.data.slice(0,30));
-      html += '<div class="docitem" data-act="opendoc" data-item="'+d.item.id+'" data-doc="'+escapeAttr(d.doc.name)+'">'+
+      var isPdf = isPdfFile(d.doc.fileId);
+      html += '<div class="docitem" data-act="opendoc" data-file="'+escapeAttr(d.doc.fileId)+'">'+
         '<div class="ico">'+(isPdf?'📄':'🖼️')+'</div>'+
         '<div class="t"><div class="n">'+escapeHtml(d.doc.name)+'</div><div class="m">'+niceDate(d.item.day)+' · '+escapeHtml(d.item.name)+'</div></div>'+
       '</div>';
@@ -142,34 +143,23 @@ function bindSchedulePageEvents(trip){
   page.querySelectorAll('[data-act="editflight"]').forEach(function(b){ b.addEventListener('click', function(e){ e.stopPropagation(); openFlightSheet(b.getAttribute('data-id')); }); });
   page.querySelectorAll('[data-act="opendoc"]').forEach(function(b){
     b.addEventListener('click', function(){
-      var itemId = b.getAttribute('data-item'), docName = b.getAttribute('data-doc');
-      var it = trip.items.find(function(x){return x.id===itemId;});
-      var doc = it && it.userDocs.find(function(d){return d.name===docName;});
-      if(doc) openDataUrl(doc.data);
+      openFile(b.getAttribute('data-file'));
     });
   });
   page.querySelectorAll('[data-act="go"]').forEach(function(b){ b.addEventListener('click', function(){ var it=findItem(trip,b.getAttribute('data-id')); window.open(mapUrlFor(it,'dir'), '_blank'); }); });
   page.querySelectorAll('[data-act="map"]').forEach(function(b){ b.addEventListener('click', function(){ var it=findItem(trip,b.getAttribute('data-id')); window.open(mapUrlFor(it,'search'), '_blank'); }); });
   page.querySelectorAll('[data-act="ics"]').forEach(function(b){ b.addEventListener('click', function(){ var it=findItem(trip,b.getAttribute('data-id')); downloadIcsForItems([it], it.name); }); });
-  page.querySelectorAll('[data-act="attachview"]').forEach(function(b){ b.addEventListener('click', function(){ var it=findItem(trip,b.getAttribute('data-id')); if(it.userDocs[0]) openDataUrl(it.userDocs[0].data); } ); });
+  page.querySelectorAll('[data-act="attachview"]').forEach(function(b){ b.addEventListener('click', function(){ var it=findItem(trip,b.getAttribute('data-id')); if(it.userDocs[0]) openFile(it.userDocs[0].fileId); } ); });
   page.querySelectorAll('[data-act="edit"]').forEach(function(b){ b.addEventListener('click', function(){ openItemSheet(b.getAttribute('data-id')); }); });
   page.querySelectorAll('[data-act="del"]').forEach(function(b){ b.addEventListener('click', function(){ deleteItem(trip, b.getAttribute('data-id')); }); });
 }
 
 function findItem(trip,id){ return trip.items.find(function(i){return i.id===id;}); }
 
-function openDataUrl(dataUrl){
-  try{
-    var parts = dataUrl.split(',');
-    var meta = parts[0];
-    var mime = meta.match(/data:(.*?);base64/)[1];
-    var byteChars = atob(parts[1]);
-    var bytes = new Uint8Array(byteChars.length);
-    for(var i=0;i<byteChars.length;i++) bytes[i]=byteChars.charCodeAt(i);
-    var blob = new Blob([bytes], {type:mime});
-    var url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-  }catch(e){ toast('파일을 열 수 없어요'); }
+function openFile(fileId){
+  var url = fileUrl(fileId);
+  if(!url){ toast('파일을 열 수 없어요'); return; }
+  window.open(url, '_blank');
 }
 
 function deleteItem(trip, id){

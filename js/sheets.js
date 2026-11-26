@@ -46,28 +46,26 @@ function renderAttachList(){
   pendingAttachments.forEach(function(doc, idx){
     var row = document.createElement('div');
     row.className='a';
-    row.innerHTML = '<span>'+(/pdf/.test(doc.data.slice(0,30))?'📄':'🖼️')+'</span><span>'+escapeHtml(doc.name)+'</span><span class="x" data-idx="'+idx+'">✕</span>';
+    row.innerHTML = '<span>'+(isPdfFile(doc.fileId)?'📄':'🖼️')+'</span><span>'+escapeHtml(doc.name)+'</span><span class="x" data-idx="'+idx+'">✕</span>';
     row.querySelector('.x').addEventListener('click', function(){ pendingAttachments.splice(idx,1); renderAttachList(); });
     wrap.appendChild(row);
   });
 }
+// 사진은 가로 1000px JPEG로 줄인 Blob, PDF는 그대로 돌려준다
 function resizeImage(file, cb){
-  var reader = new FileReader();
-  reader.onload = function(e){
-    if(file.type==='application/pdf'){ cb(e.target.result); return; }
-    var img = new Image();
-    img.onload = function(){
-      var maxW=1000; var scale = Math.min(1, maxW/img.width);
-      var canvas = document.createElement('canvas');
-      canvas.width = img.width*scale; canvas.height = img.height*scale;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      cb(canvas.toDataURL('image/jpeg', 0.82));
-    };
-    img.onerror = function(){ cb(e.target.result); };
-    img.src = e.target.result;
+  if(file.type==='application/pdf'){ cb(file); return; }
+  var src = URL.createObjectURL(file);
+  var img = new Image();
+  img.onload = function(){
+    var maxW=1000; var scale = Math.min(1, maxW/img.width);
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width*scale); canvas.height = Math.round(img.height*scale);
+    canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+    URL.revokeObjectURL(src);
+    canvas.toBlob(function(blob){ cb(blob || file); }, 'image/jpeg', 0.82);
   };
-  reader.readAsDataURL(file);
+  img.onerror = function(){ URL.revokeObjectURL(src); cb(file); };
+  img.src = src;
 }
 
 async function geocode(place){
@@ -124,8 +122,8 @@ document.getElementById('fileAttachInput').addEventListener('change', function(e
   var remaining = files.length;
   if(!remaining) return;
   files.forEach(function(f){
-    resizeImage(f, function(dataUrl){
-      pendingAttachments.push({name:f.name, data:dataUrl});
+    resizeImage(f, function(blob){
+      pendingAttachments.push({name:f.name, fileId:addFile(blob)});
       remaining--;
       if(remaining===0) renderAttachList();
     });
@@ -254,8 +252,8 @@ document.getElementById('btnGoNewTrip').addEventListener('click', function(){ cl
 document.getElementById('btnCamera').addEventListener('click', function(){ document.getElementById('fileCameraInput').click(); });
 document.getElementById('fileCameraInput').addEventListener('change', function(e){
   var f = e.target.files[0]; if(!f) return;
-  resizeImage(f, function(dataUrl){
-    var trip=getTrip(); trip.bgImage=dataUrl; save(); render(); toast('배경 사진을 변경했어요');
+  resizeImage(f, function(blob){
+    var trip=getTrip(); trip.bgFile=addFile(blob); save(); render(); toast('배경 사진을 변경했어요');
   });
   e.target.value='';
 });
@@ -279,34 +277,14 @@ document.getElementById('setNoti').addEventListener('click', function(){
   if(!('Notification' in window)){ toast('이 브라우저는 알림을 지원하지 않아요'); return; }
   Notification.requestPermission().then(function(p){ toast(p==='granted' ? '알림이 허용됐어요' : '알림이 거부됐어요'); });
 });
-document.getElementById('setExport').addEventListener('click', function(){
-  var blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a'); a.href=url; a.download='jplanner_backup.json'; a.click();
-  toast('JSON 파일을 내보냈어요');
-});
-document.getElementById('setImport').addEventListener('click', function(){ document.getElementById('importInput').click(); });
-document.getElementById('importInput').addEventListener('change', function(e){
-  var f = e.target.files[0]; if(!f) return;
-  var reader = new FileReader();
-  reader.onload = function(ev){
-    try{
-      var data = normalizeState(JSON.parse(ev.target.result));
-      if(data){
-        state = data; save(); selectedDay=null; render(); closeSheet('sheetSettings'); toast('불러오기 완료');
-      } else { toast('올바른 백업 파일이 아니에요'); }
-    }catch(err){ toast('파일을 읽을 수 없어요'); }
-  };
-  reader.readAsText(f);
-  e.target.value='';
-});
+// 백업 내보내기/가져오기 버튼은 backup.js
 document.getElementById('setIcs').addEventListener('click', function(){
   var trip = getTrip();
   downloadIcsForItems(trip.items, trip.title);
 });
 document.getElementById('setReset').addEventListener('click', function(){
   if(pendingResetConfirm){
-    state = seedData(); save(); selectedDay=null; render(); closeSheet('sheetSettings'); toast('초기화했어요'); pendingResetConfirm=false;
+    state = seedData(); save(); pruneFiles(); selectedDay=null; render(); closeSheet('sheetSettings'); toast('초기화했어요'); pendingResetConfirm=false;
     document.getElementById('setReset').textContent='초기화';
   } else {
     pendingResetConfirm=true; document.getElementById('setReset').textContent='한 번 더 눌러 초기화';
