@@ -52,20 +52,21 @@ function renderAttachList(){
     wrap.appendChild(row);
   });
 }
-// 사진은 가로 1000px JPEG로 줄인 Blob, PDF는 그대로 돌려준다
-function resizeImage(file, cb){
+// 사진은 가로 maxW(기본 1000px) JPEG로 줄인 Blob, PDF는 그대로 돌려준다.
+// failNull이면 사진을 못 읽었을 때 원본 대신 null을 준다 (방문 썸네일용)
+function resizeImage(file, cb, maxW, failNull){
   if(file.type==='application/pdf'){ cb(file); return; }
   var src = URL.createObjectURL(file);
   var img = new Image();
+  img.onerror = function(){ URL.revokeObjectURL(src); cb(failNull ? null : file); };
   img.onload = function(){
-    var maxW=1000; var scale = Math.min(1, maxW/img.width);
+    maxW = maxW || 1000; var scale = Math.min(1, maxW/img.width);
     var canvas = document.createElement('canvas');
     canvas.width = Math.round(img.width*scale); canvas.height = Math.round(img.height*scale);
     canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
     URL.revokeObjectURL(src);
-    canvas.toBlob(function(blob){ cb(blob || file); }, 'image/jpeg', 0.82);
+    canvas.toBlob(function(blob){ cb(blob || (failNull ? null : file)); }, 'image/jpeg', 0.82);
   };
-  img.onerror = function(){ URL.revokeObjectURL(src); cb(file); };
   img.src = src;
 }
 
@@ -260,14 +261,36 @@ document.getElementById('fileCameraInput').addEventListener('change', function(e
 });
 
 /* ---------- 페이지 탭 ---------- */
+/* 맨 위 탭: 계획 / 실제 / 비교. 계획 안에서 일정 / 지도 전환 */
+var curPage = 'plan', planView = 'list';
+document.getElementById('tabPlan').addEventListener('click', function(){ switchPage('plan'); });
+document.getElementById('tabActual').addEventListener('click', function(){ switchPage('actual'); });
+document.getElementById('tabCompare').addEventListener('click', function(){ switchPage('compare'); });
 document.getElementById('tabSchedule').addEventListener('click', function(){ switchPage('schedule'); });
 document.getElementById('tabOverview').addEventListener('click', function(){ switchPage('overview'); });
+function isVisible(id){ return !document.getElementById(id).classList.contains('hide'); }
+// p: 'plan' | 'actual' | 'compare', 또는 계획 안의 'schedule'(일정) | 'overview'(지도)
 function switchPage(p){
-  document.getElementById('tabSchedule').classList.toggle('active', p==='schedule');
-  document.getElementById('tabOverview').classList.toggle('active', p==='overview');
-  document.getElementById('pageSchedule').classList.toggle('hide', p!=='schedule');
-  document.getElementById('pageOverview').classList.toggle('hide', p!=='overview');
-  if(p==='overview'){ setTimeout(function(){ renderOverview(getTrip()); }, 30); }
+  if(p==='schedule'){ planView='list'; p='plan'; }
+  if(p==='overview'){ planView='map'; p='plan'; }
+  curPage = p;
+  var plan = p==='plan';
+  document.getElementById('tabPlan').classList.toggle('active', plan);
+  document.getElementById('tabActual').classList.toggle('active', p==='actual');
+  document.getElementById('tabCompare').classList.toggle('active', p==='compare');
+  document.getElementById('planSubtabs').classList.toggle('hide', !plan);
+  document.getElementById('tabSchedule').classList.toggle('on', planView==='list');
+  document.getElementById('tabOverview').classList.toggle('on', planView==='map');
+  document.getElementById('pageSchedule').classList.toggle('hide', !(plan && planView==='list'));
+  document.getElementById('pageOverview').classList.toggle('hide', !(plan && planView==='map'));
+  document.getElementById('pageActual').classList.toggle('hide', p!=='actual');
+  document.getElementById('pageCompare').classList.toggle('hide', p!=='compare');
+  // 하단 버튼: 계획 → 일정 추가, 실제 → 위치 등록·사진 넣기
+  document.getElementById('btnAddItem').classList.toggle('hide', !plan);
+  document.getElementById('btnLocate').classList.toggle('hide', p!=='actual');
+  document.getElementById('btnPhotos').classList.toggle('hide', p!=='actual');
+  if(plan && planView==='map'){ setTimeout(function(){ renderOverview(getTrip()); }, 30); }
+  if(p==='actual'){ setTimeout(function(){ renderActual(getTrip()); }, 30); }
 }
 
 /* ---------- 설정 시트 ---------- */

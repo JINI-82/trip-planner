@@ -8,7 +8,8 @@ var TRAVEL_MODE = {
   '도보':'WALKING', '자전거':'BICYCLING',
   '택시':'DRIVING', '버스':'DRIVING',
   '지하철':'TRANSIT', '기차':'TRANSIT', '트램':'TRANSIT',
-  '항공':null // 직선
+  '항공':null, // 직선
+  '차량':'DRIVING' // 실제 방문 구간
 };
 function travelModeFor(move){
   if(move in TRAVEL_MODE) return TRAVEL_MODE[move];
@@ -58,6 +59,13 @@ function pruneRouteCache(trip){
   trip.items.forEach(function(it){ (days[it.day] = days[it.day]||[]).push(it); });
   Object.keys(days).forEach(function(d){
     var list = sortedItems(trip, d).filter(function(i){ return i.lat!=null && i.lng!=null; });
+    for(var i=0;i<list.length-1;i++) used[routeKey(list[i], list[i+1])] = true;
+  });
+  // 실제 방문 구간
+  var vdays = {};
+  (trip.visits||[]).forEach(function(v){ (vdays[v.day] = vdays[v.day]||[]).push(v); });
+  Object.keys(vdays).forEach(function(d){
+    var list = vdays[d].slice().sort(function(a,b){ return a.ms-b.ms; });
     for(var i=0;i<list.length-1;i++) used[routeKey(list[i], list[i+1])] = true;
   });
   Object.keys(trip.routes).forEach(function(k){ if(!used[k]) delete trip.routes[k]; });

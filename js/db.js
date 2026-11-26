@@ -95,6 +95,7 @@ function referencedFileIds(st){
   (st.trips||[]).forEach(function(t){
     if(t.bgFile) ids[t.bgFile] = true;
     (t.items||[]).forEach(function(it){ (it.userDocs||[]).forEach(function(d){ if(d.fileId) ids[d.fileId] = true; }); });
+    (t.visits||[]).forEach(function(v){ (v.photos||[]).forEach(function(p){ if(p.fileId) ids[p.fileId] = true; }); });
   });
   return ids;
 }
@@ -116,6 +117,7 @@ function dropMissingFiles(st){
   st.trips.forEach(function(t){
     if(t.bgFile && !FILES[t.bgFile]) delete t.bgFile;
     t.items.forEach(function(it){ it.userDocs = (it.userDocs||[]).filter(function(d){ return !d.fileId || FILES[d.fileId]; }); });
+    (t.visits||[]).forEach(function(v){ v.photos = (v.photos||[]).filter(function(p){ return FILES[p.fileId]; }); });
   });
 }
 

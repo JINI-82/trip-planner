@@ -76,6 +76,25 @@ function cleanRoutes(r){
   });
   return out;
 }
+/* 실제 방문
+ * { id, day:'YYYY-MM-DD'(현지), time:'HH:MM'(현지), tz:'+08:00', ms:UTC 밀리초,
+ *   lat, lng, name, memo, move:'도보'|'차량'|'항공'|'' (이 방문으로 들어온 이동수단),
+ *   source:'gps'|'photo', photos:[{fileId, key}] }  key = 같은 사진 중복 방지용 */
+var VISIT_MOVES = ['도보','차량','항공'];
+var RE_TZ = /^[+-]\d{2}:\d{2}$/;
+function cleanVisits(list){
+  if(!Array.isArray(list)) return [];
+  return list.filter(function(v){
+    return v && typeof v==='object' && RE_DAY.test(v.day) && RE_TIME.test(v.time) && num(v.lat)!==null && num(v.lng)!==null && num(v.ms)!==null;
+  }).map(function(v){
+    return { id: cleanId(v.id), day: v.day, time: v.time, tz: RE_TZ.test(v.tz) ? v.tz : '+00:00', ms: v.ms,
+      lat: v.lat, lng: v.lng, name: str(v.name,100), memo: str(v.memo,2000),
+      move: VISIT_MOVES.indexOf(v.move)!==-1 ? v.move : '',
+      source: v.source==='gps' ? 'gps' : 'photo',
+      photos: (Array.isArray(v.photos) ? v.photos : []).filter(function(p){ return p && typeof p.fileId==='string' && RE_ID.test(p.fileId); })
+        .map(function(p){ return {fileId:p.fileId, key:str(p.key,200)}; }) };
+  }).sort(function(a,b){ return a.ms-b.ms; });
+}
 function normalizeState(data){
   if(!data || typeof data!=='object' || !Array.isArray(data.trips) || !data.trips.length) return null;
   var trips = [];
@@ -91,6 +110,7 @@ function normalizeState(data){
       cities: Array.isArray(t.cities) ? t.cities.map(function(c){return str(c,50);}).filter(Boolean) : [],
       bgFile: (typeof t.bgFile==='string' && RE_ID.test(t.bgFile)) ? t.bgFile : undefined,
       routes: cleanRoutes(t.routes),
+      visits: cleanVisits(t.visits),
       // 옛 형식 (absorbLegacyFiles가 파일로 옮김)
       bgImage: (!t.bgFile && typeof t.bgImage==='string' && /^data:image\//.test(t.bgImage)) ? t.bgImage : undefined,
       flights: (Array.isArray(t.flights) ? t.flights : []).filter(function(f){ return f && typeof f==='object'; }).map(function(f){

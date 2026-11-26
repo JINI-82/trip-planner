@@ -19,9 +19,8 @@ function render(){
 
   renderDayTabs(trip);
   renderSchedulePage(trip);
-  if(!document.getElementById('pageOverview').classList.contains('hide')){
-    renderOverview(trip);
-  }
+  if(isVisible('pageOverview')) renderOverview(trip);
+  if(isVisible('pageActual')) renderActual(trip);
 }
 
 function renderDayTabs(trip){
@@ -41,7 +40,8 @@ function renderDayTabs(trip){
       renderSchedulePage(trip);
       var firstCard = document.querySelector('.itemcard[data-day="'+d+'"]');
       if(firstCard) firstCard.scrollIntoView({behavior:'smooth', block:'center'});
-      if(!document.getElementById('pageOverview').classList.contains('hide')) renderOverview(trip);
+      if(isVisible('pageOverview')) renderOverview(trip);
+      if(isVisible('pageActual')) renderActual(trip);
     });
     wrap.appendChild(chip);
   });
