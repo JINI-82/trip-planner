@@ -1,5 +1,5 @@
 // 앱 아이콘 PNG 만들기 (외부 패키지 없음): node tests/make-icons.js
-// 남색 그라데이션 바탕 + 금색 J + 주황 점. icons/ 에 192·512·180(아이폰) 저장
+// 남색 그라데이션 바탕 + 금색 JP + 주황 점. icons/ 에 192·512·180(아이폰) 저장
 const fs = require('fs'), path = require('path'), zlib = require('zlib');
 
 function crc32(buf){
@@ -31,17 +31,24 @@ const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt
 const NAVY = hex('#1b4b7a'), NAVY2 = hex('#3f7cb0'), GOLD = hex('#e0a94e'), ORANGE = hex('#d9724a');
 const mix = (a, b, t) => a.map((v,i) => Math.round(v + (b[i]-v)*t));
 
-// 단위 좌표(0~1)에서 모양 판정
+// 단위 좌표(0~1)에서 모양 판정 — 'JP' 두 글자 (획 두께 0.11)
+const T = 0.11, TOP = 0.28, BOT = 0.72;
 function inJ(u, v){
-  const stemX0 = 0.50, stemX1 = 0.63, top = 0.22, bottom = 0.62;
-  if(u>=stemX0 && u<=stemX1 && v>=top && v<=bottom) return true;          // 세로 기둥
-  if(u>=0.40 && u<=stemX1 && v>=top && v<=top+0.10) return true;          // 위 가로줄
-  const cx = (stemX0+stemX1)/2 - 0.12, cy = bottom, rOut = 0.12+0.065, rIn = 0.12-0.065; // 아래 갈고리(반원)
-  const d = Math.hypot(u-cx, v-cy);
-  if(v>=cy && d<=rOut && d>=rIn) return true;
-  return false;
+  const x1 = 0.47, x0 = x1 - T, hookY = 0.58;
+  if(u>=x0 && u<=x1 && v>=TOP && v<=hookY) return true;                    // 세로 기둥
+  if(u>=0.25 && u<=x1 && v>=TOP && v<=TOP+T) return true;                   // 위 가로줄
+  const r = (x1 - 0.15)/2, cx = 0.15 + r, rOut = r, rIn = r - T;            // 아래 갈고리(반원)
+  const d = Math.hypot(u-cx, v-hookY);
+  return v>=hookY && d<=rOut && d>=rIn;
 }
-function inDot(u, v){ return Math.hypot(u-0.74, v-0.27) <= 0.065; }
+function inP(u, v){
+  const x0 = 0.55, x1 = x0 + T, bowlB = TOP + 0.27, cx = 0.70, cy = (TOP + bowlB)/2, rOut = (bowlB - TOP)/2;
+  if(u>=x0 && u<=x1 && v>=TOP && v<=BOT) return true;                       // 세로 기둥
+  if(u>=x0 && u<=cx && ((v>=TOP && v<=TOP+T) || (v>=bowlB-T && v<=bowlB))) return true; // 위·아래 가로줄
+  const d = Math.hypot(u-cx, v-cy);
+  return u>=cx && d<=rOut && d>=rOut-T;                                     // 오른쪽 반원
+}
+function inDot(u, v){ return Math.hypot(u-0.83, v-0.76) <= 0.045; }
 
 function render(size){
   const S = 4; // 4x4 슈퍼샘플링으로 가장자리 부드럽게
@@ -50,7 +57,7 @@ function render(size){
     let j = 0, dot = 0;
     for(let sy=0; sy<S; sy++) for(let sx=0; sx<S; sx++){
       const u = (x + (sx+0.5)/S)/size, v = (y + (sy+0.5)/S)/size;
-      if(inDot(u,v)) dot++; else if(inJ(u,v)) j++;
+      if(inDot(u,v)) dot++; else if(inJ(u,v) || inP(u,v)) j++;
     }
     let c = mix(bg, GOLD, j/(S*S));
     c = mix(c, ORANGE, dot/(S*S));

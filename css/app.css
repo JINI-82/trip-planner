@@ -44,6 +44,9 @@ h1,h2,h3,p{margin:0;}
   padding:calc(10px + var(--safe-top)) 14px 10px;display:flex;align-items:center;gap:8px;
   border-bottom:1px solid var(--border);}
 .appbar .logo{font-weight:800;color:var(--navy);font-size:17px;letter-spacing:-0.3px;}
+/* JP 로고: 앱 아이콘과 같은 남색 배지 + 금색 글자 */
+.appbar .logo-mark{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 9px;border-radius:9px;
+  background:linear-gradient(135deg,#1b4b7a,#3f7cb0);color:#e0a94e;font-size:16px;font-weight:900;letter-spacing:.5px;}
 .appbar .spacer{flex:1;}
 .iconbtn{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   background:var(--bg);font-size:16px;color:var(--navy);}

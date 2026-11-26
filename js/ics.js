@@ -10,7 +10,7 @@ function icsDate(dayStr, timeStr){
   return d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'T'+pad2(+hm[0])+pad2(+hm[1])+'00';
 }
 function downloadIcsForItems(items, label){
-  var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//J플래너//KO'];
+  var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//JP//KO'];
   items.forEach(function(it){
     var startDt = icsDate(it.day, it.time);
     // 종료 = 시작 + 1시간 (자정을 넘기면 다음 날로)

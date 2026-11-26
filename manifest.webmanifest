@@ -1,6 +1,6 @@
 {
-  "name": "J플래너",
-  "short_name": "J플래너",
+  "name": "JP",
+  "short_name": "JP",
   "description": "여행 계획과 실제 방문을 기록하고 비교하는 여행 플래너",
   "lang": "ko",
   "start_url": "./",

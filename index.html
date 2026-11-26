@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<title>J플래너</title>
+<title>JP</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="J플래너">
+<meta name="apple-mobile-web-app-title" content="JP">
 <meta name="theme-color" content="#1b4b7a" id="themeColorMeta">
 <script>
 /* 화면 모드를 그리기 전에 적용 (깜빡임 방지). 값은 이 기기에만 저장 */
@@ -20,7 +20,7 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <body>
 
 <div class="appbar">
-  <div class="logo">🧭 J플래너</div>
+  <div class="logo"><span class="logo-mark">JP</span></div>
   <div class="spacer"></div>
   <button class="iconbtn" id="btnHelp">❓</button>
   <button class="tripbtn" id="btnTripName"><span class="name" id="tripNameLabel">여행</span><span>▾</span></button>
@@ -252,7 +252,7 @@ try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dar
 <!-- 사용법 시트 -->
 <div class="sheet" id="sheetHelp">
   <div class="grip"></div>
-  <h3>J플래너 사용법</h3>
+  <h3>JP 사용법</h3>
   <div class="helpcard"><div class="h">✈️ 여러 여행 관리</div><div class="b">상단 여행 이름을 눌러 여행을 추가·전환할 수 있어요.</div></div>
   <div class="helpcard"><div class="h">🗓 일정 추가</div><div class="b">하단 '＋ 일정 추가'로 카테고리·시간·장소를 등록하면 자동으로 시간순 정렬돼요.</div></div>
   <div class="helpcard"><div class="h">🗺 오버뷰</div><div class="b">지도 위에서 그날의 동선을 캐릭터가 이동하며 보여줘요. 핀을 누르면 해당 일정으로 이동해요.</div></div>

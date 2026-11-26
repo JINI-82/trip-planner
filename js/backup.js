@@ -17,7 +17,7 @@ async function buildBackup(){
     if(f) files[ids[i]] = {type:f.type, data: await blobToDataUrl(f.blob)};
   }
   var json = JSON.stringify({app:BACKUP_APP, version:BACKUP_VERSION, exportedAt:new Date().toISOString(), state:state, files:files});
-  return new File([json], 'J플래너-백업-'+todayStr()+'.json', {type:'application/json'});
+  return new File([json], 'JP-백업-'+todayStr()+'.json', {type:'application/json'});
 }
 
 // 아이폰은 공유 시트('파일에 저장'), 안 되면 다운로드

@@ -1,8 +1,8 @@
-/* J플래너 서비스 워커 — 오프라인에서도 앱과 기록을 볼 수 있게 앱 파일을 저장해 둔다.
+/* JP 서비스 워커 — 오프라인에서도 앱과 기록을 볼 수 있게 앱 파일을 저장해 둔다.
  * 전략: 같은 사이트 파일은 '네트워크 먼저, 안 되면 저장본' (온라인이면 항상 최신).
  *       구글 지도 등 다른 사이트 요청은 건드리지 않는다 (저장 안 함).
  * 앱 파일 목록(SHELL)이 바뀌면 CACHE 이름의 숫자를 올린다. */
-const CACHE = 'jplanner-shell-v1';
+const CACHE = 'jplanner-shell-v2';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
