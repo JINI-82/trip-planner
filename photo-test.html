@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>사진 GPS 테스트 · J플래너</title>
+<script>
+try{ var tp = localStorage.getItem('jplanner_theme'); if(tp==='light'||tp==='dark') document.documentElement.setAttribute('data-theme', tp); }catch(e){}
+</script>
+<link rel="stylesheet" href="css/app.css">
+<style>
+  body{padding:calc(16px + var(--safe-top)) 14px 40px;}
+  h1{font-size:19px;font-weight:800;color:var(--navy);margin-bottom:4px;}
+  .lead{font-size:12.5px;color:var(--sub);line-height:1.5;margin-bottom:14px;}
+  .pick{display:block;width:100%;padding:14px;border-radius:14px;background:var(--navy);color:#fff;font-weight:800;font-size:15px;text-align:center;}
+  .summary{margin:14px 0;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);font-size:13.5px;line-height:1.6;}
+  .summary b{color:var(--navy);}
+  .ph{display:flex;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;}
+  .ph img{width:72px;height:72px;object-fit:cover;border-radius:10px;flex:0 0 auto;background:var(--bg);}
+  .ph .info{flex:1;min-width:0;font-size:12px;line-height:1.55;}
+  .ph .n{font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ok{color:#2f9e6f;font-weight:700;} .no{color:var(--danger);font-weight:700;} .mid{color:var(--sub);}
+  .ph a{color:var(--navy2);font-weight:700;}
+  .groups{font-size:12.5px;line-height:1.6;}
+  textarea{width:100%;min-height:140px;margin-top:8px;padding:10px;border:1.5px solid var(--border);border-radius:12px;background:var(--bg);color:var(--ink);font-size:11.5px;font-family:ui-monospace,Menlo,monospace;}
+  .row{display:flex;gap:8px;margin-top:8px;}
+  .row button{flex:1;padding:11px;border-radius:12px;background:var(--bg);border:1px solid var(--border);font-weight:700;font-size:13px;}
+  .sec{font-size:13px;font-weight:800;color:var(--sub);margin:18px 2px 8px;}
+</style>
+</head>
+<body>
+<h1>📷 사진 GPS 테스트</h1>
+<p class="lead">사진을 여러 장 골라서 위치·촬영시간·시간대가 남아 있는지 확인해요. 사진은 이 기기 안에서만 읽고 어디에도 보내지 않아요.<br>
+아이폰: '사진 보관함'에서 고를 때 아래쪽 <b>옵션</b>에 '위치 포함'이 있으면 켜고 한 번, 끄고 한 번 해보세요. '파일'에서 고르는 것도 비교해보세요.</p>
+
+<label class="pick" for="files">사진 고르기 (여러 장)</label>
+<input type="file" id="files" accept="image/*" multiple class="hide">
+
+<div class="summary hide" id="summary"></div>
+<div id="list"></div>
+
+<div class="sec hide" id="groupsTitle">방문 묶기 미리보기 (100m·30분 이내)</div>
+<div class="summary groups hide" id="groups"></div>
+
+<div class="sec hide" id="reportTitle">결과 텍스트 (복사해서 채팅에 붙여주세요)</div>
+<textarea id="report" class="hide" readonly></textarea>
+<div class="row hide" id="reportBtns"><button id="copyBtn">결과 복사</button></div>
+
+<script src="vendor/exifr.lite.umd.js"></script>
+<script>
+"use strict";
+/* exifr 원시값 그대로 받는다 (reviveValues:false → 촬영시간을 PC 시간대로 바꾸지 않음)
+   주의: lite 빌드에서 pick 옵션은 오류가 나서 쓰지 않는다 */
+var EXIF_OPTS = {tiff:true, exif:true, gps:true, reviveValues:false, translateValues:false};
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function pad(n){ return n<10?'0'+n:''+n; }
+
+// 'YYYY:MM:DD HH:MM:SS' → {y,m,d,h,mi,s}
+function parseExifDate(s){
+  var m = /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/.exec(s||'');
+  return m ? {y:+m[1], mo:+m[2], d:+m[3], h:+m[4], mi:+m[5], s:+m[6]} : null;
+}
+// GPS 날짜·시각(UTC) → ms
+function gpsUtcMs(ds, ts){
+  var d = /^(\d{4}):(\d{2}):(\d{2})/.exec(ds||'');
+  if(!d || !ts || ts.length<3) return null;
+  return Date.UTC(+d[1], +d[2]-1, +d[3], +ts[0], +ts[1], Math.floor(+ts[2]));
+}
+// 시간대 문자열(+08:00) → 분
+function offsetMin(s){
+  var m = /^([+-])(\d{2}):(\d{2})$/.exec(s||'');
+  return m ? (m[1]==='-'?-1:1)*(+m[2]*60 + +m[3]) : null;
+}
+function fmtOffset(min){
+  var sign = min<0?'-':'+'; min=Math.abs(min);
+  return sign+pad(Math.floor(min/60))+':'+pad(min%60);
+}
+function distM(a, b){
+  var R=6371000, r=Math.PI/180, dLat=(b.lat-a.lat)*r, dLng=(b.lng-a.lng)*r;
+  var s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(s)));
+}
+
+async function readOne(file){
+  var r = {name:file.name, type:file.type||'(없음)', sizeKB:Math.round(file.size/1024), url:URL.createObjectURL(file)};
+  try{
+    var t = await exifr.parse(file, EXIF_OPTS) || {};
+    r.exif = Object.keys(t).length>0;
+    r.camera = [t.Make, t.Model].filter(Boolean).join(' ');
+    r.taken = t.DateTimeOriginal || t.CreateDate || '';
+    var off = t.OffsetTimeOriginal || t.OffsetTime || '';
+    r.offsetSrc = off ? 'EXIF' : '';
+    // EXIF에 시간대가 없으면 GPS 시각(UTC)과 촬영시각(현지)의 차이로 추정
+    var local = parseExifDate(r.taken);
+    var utc = gpsUtcMs(t.GPSDateStamp, t.GPSTimeStamp);
+    if(!off && local && utc!=null){
+      var localMs = Date.UTC(local.y, local.mo-1, local.d, local.h, local.mi, local.s);
+      var diff = Math.round((localMs-utc)/60000/15)*15; // 15분 단위로 반올림
+      if(Math.abs(diff)<=14*60){ off = fmtOffset(diff); r.offsetSrc = 'GPS 시각으로 추정'; }
+    }
+    r.offset = off;
+    if(typeof t.latitude==='number' && typeof t.longitude==='number'){ r.lat = t.latitude; r.lng = t.longitude; }
+    // 촬영 시각을 UTC ms로 (묶기 계산용)
+    if(local){
+      var om = offsetMin(off);
+      r.ms = Date.UTC(local.y, local.mo-1, local.d, local.h, local.mi, local.s) - (om==null?0:om*60000);
+    }
+  }catch(e){
+    r.error = (e && e.message) || String(e);
+  }
+  return r;
+}
+
+function cardHtml(r){
+  var gps = r.lat!=null
+    ? '<span class="ok">GPS 있음</span> '+r.lat.toFixed(5)+', '+r.lng.toFixed(5)+' · <a href="https://www.google.com/maps/search/?api=1&query='+r.lat+','+r.lng+'" target="_blank" rel="noopener">지도</a>'
+    : '<span class="no">GPS 없음</span>';
+  return '<div class="ph"><img src="'+esc(r.url)+'" alt=""><div class="info">'+
+    '<div class="n">'+esc(r.name)+'</div>'+
+    '<div class="mid">'+esc(r.type)+' · '+r.sizeKB+'KB'+(r.camera?' · '+esc(r.camera):'')+'</div>'+
+    (r.error ? '<div class="no">읽기 실패: '+esc(r.error)+'</div>' :
+      '<div>'+gps+'</div>'+
+      '<div>촬영: '+(r.taken ? esc(r.taken) : '<span class="no">없음</span>')+'</div>'+
+      '<div>시간대: '+(r.offset ? esc(r.offset)+' <span class="mid">('+esc(r.offsetSrc)+')</span>' : '<span class="no">없음</span>')+'</div>')+
+  '</div></div>';
+}
+
+// 5단계 방문 묶기 규칙 미리보기: 시간순으로 앞 사진과 100m·30분 이내면 같은 방문
+function groupVisits(rows){
+  var pts = rows.filter(function(r){ return r.lat!=null && r.ms!=null; }).sort(function(a,b){ return a.ms-b.ms; });
+  var groups = [];
+  pts.forEach(function(p){
+    var g = groups[groups.length-1];
+    var last = g && g[g.length-1];
+    if(last && distM(last,p)<=100 && (p.ms-last.ms)<=30*60000) g.push(p); else groups.push([p]);
+  });
+  return groups;
+}
+
+function buildReport(rows){
+  var ua = navigator.userAgent;
+  var lines = ['[J플래너 사진 GPS 테스트]', '브라우저: '+ua, '사진 '+rows.length+'장'];
+  rows.forEach(function(r, i){
+    lines.push((i+1)+'. '+r.name+' | '+r.type+' | '+r.sizeKB+'KB | GPS '+(r.lat!=null?'O':'X')+
+      ' | 촬영 '+(r.taken||'-')+' | 시간대 '+(r.offset?r.offset+'('+r.offsetSrc+')':'-')+(r.error?' | 오류 '+r.error:''));
+  });
+  return lines.join('\n');
+}
+
+document.getElementById('files').addEventListener('change', async function(e){
+  var files = Array.from(e.target.files||[]);
+  if(!files.length) return;
+  var list = document.getElementById('list');
+  list.innerHTML = '<div class="summary">읽는 중… ('+files.length+'장)</div>';
+  var rows = [];
+  for(var i=0;i<files.length;i++) rows.push(await readOne(files[i]));
+  e.target.value='';
+
+  var withGps = rows.filter(function(r){ return r.lat!=null; }).length;
+  var withTime = rows.filter(function(r){ return r.taken; }).length;
+  var withOff = rows.filter(function(r){ return r.offset; }).length;
+  var sum = document.getElementById('summary');
+  sum.innerHTML = '사진 <b>'+rows.length+'</b>장 · GPS <b>'+withGps+'</b>장 · 촬영시간 <b>'+withTime+'</b>장 · 시간대 <b>'+withOff+'</b>장'+
+    (withGps<rows.length ? '<br><span class="no">위치가 빠진 사진이 있어요. 고를 때 옵션의 \'위치 포함\'을 확인해보세요.</span>' : '');
+  sum.classList.remove('hide');
+  list.innerHTML = rows.map(cardHtml).join('');
+
+  var groups = groupVisits(rows);
+  var gEl = document.getElementById('groups');
+  gEl.innerHTML = groups.length ? groups.map(function(g, i){
+    return '방문 '+(i+1)+': 사진 '+g.length+'장 · '+esc(g[0].taken)+(g.length>1?' ~ '+esc(g[g.length-1].taken.slice(11)):'');
+  }).join('<br>') : '<span class="mid">GPS와 촬영시간이 모두 있는 사진이 없어요</span>';
+  ['groupsTitle','groups','reportTitle','report','reportBtns'].forEach(function(id){ document.getElementById(id).classList.remove('hide'); });
+  document.getElementById('report').value = buildReport(rows);
+});
+
+// 복사: http(내부망)에서는 clipboard API가 막혀 있어서 선택+execCommand로 대신
+document.getElementById('copyBtn').addEventListener('click', function(){
+  var ta = document.getElementById('report');
+  var done = function(){ document.getElementById('copyBtn').textContent = '복사했어요'; };
+  if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(ta.value).then(done); return; }
+  ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+  try{ if(document.execCommand('copy')) done(); }catch(err){}
+});
+</script>
+</body>
+</html>
